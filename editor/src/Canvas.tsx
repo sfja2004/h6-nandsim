@@ -1,5 +1,4 @@
 import { useEffect, useRef, type ReactElement } from "react";
-import "./Canvas.css";
 import { V2, type Editor } from "./Editor";
 
 type Props = { editor: Editor };
@@ -15,7 +14,7 @@ function Canvas({ editor }: Props): ReactElement {
 
   return (
     <>
-      <div className="EditorView">
+      <div className="Canvas">
         <canvas
           ref={ref}
           width={1000}
@@ -37,10 +36,10 @@ function Canvas({ editor }: Props): ReactElement {
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onKeyDown={(ev) => {
-            console.log(ev.key);
+            editor.keyDown(ev.key);
           }}
           onKeyUp={(ev) => {
-            console.log(ev.key);
+            editor.keyUp(ev.key);
           }}
         />
       </div>

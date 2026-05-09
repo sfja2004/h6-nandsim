@@ -18,7 +18,7 @@
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
+    // "erasableSyntaxOnly": true, // i don't see why this isn't allowed in app code
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]

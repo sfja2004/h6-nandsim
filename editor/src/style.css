@@ -1,0 +1,37 @@
+
+.Editor {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+
+    .Toolbar {
+
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+        button {
+            padding-left: 5px;
+            padding-right: 5px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+
+            font-size: 1rem;
+            text-transform: capitalize;
+
+            width: 200px;
+            text-align: left;
+            border: 2px solid gray;
+            border-radius: 5px;
+        }
+        button.active {
+            border: 2px solid #ff8800;
+        }
+    }
+
+    .Canvas {
+        canvas {
+            image-rendering: pixelated;
+        }
+    }
+}

@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from "react";
-import "./App.css";
+import "./style.css";
 import Canvas from "./Canvas";
 import { Editor } from "./Editor";
 import Toolbar from "./Toolbar";
@@ -10,8 +10,10 @@ function App(): ReactElement {
   return (
     <>
       <h1>nandsim</h1>
-      <Canvas editor={editor} />
-      <Toolbar editor={editor} />
+      <div className="Editor">
+        <Toolbar editor={editor} />
+        <Canvas editor={editor} />
+      </div>
     </>
   );
 }
