@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactElement, type RefObject } from "react";
-import type { Editor } from "./Editor";
+import type { Editor } from "./editor/Editor";
 
 type Props = { editor: Editor; canvasRef: RefObject<HTMLCanvasElement | null> };
 

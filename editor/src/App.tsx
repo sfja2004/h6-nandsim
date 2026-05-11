@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactElement } from "react";
 import "./style.css";
 import Canvas from "./Canvas";
-import { Editor } from "./Editor";
+import { Editor } from "./editor/Editor";
 import Toolbar from "./Toolbar";
 
 function App(): ReactElement {
