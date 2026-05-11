@@ -1,18 +1,19 @@
-import { useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement } from "react";
 import "./style.css";
 import Canvas from "./Canvas";
 import { Editor } from "./Editor";
 import Toolbar from "./Toolbar";
 
 function App(): ReactElement {
-  const [editor] = useState(new Editor());
+  const [editor] = useState(() => new Editor());
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   return (
     <>
       <h1>nandsim</h1>
       <div className="Editor">
-        <Toolbar editor={editor} />
-        <Canvas editor={editor} />
+        <Toolbar editor={editor} canvasRef={canvasRef} />
+        <Canvas editor={editor} canvasRef={canvasRef} />
       </div>
     </>
   );

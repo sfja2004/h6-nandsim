@@ -1,22 +1,20 @@
-import { useEffect, useRef, type ReactElement } from "react";
+import { useEffect, useRef, type ReactElement, type RefObject } from "react";
 import { V2, type Editor } from "./Editor";
 
-type Props = { editor: Editor };
+type Props = { editor: Editor; canvasRef: RefObject<HTMLCanvasElement | null> };
 
-function Canvas({ editor }: Props): ReactElement {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-
+function Canvas({ editor, canvasRef }: Props): ReactElement {
   useEffect(() => {
-    if (!ref.current) return;
+    if (!canvasRef.current) return;
 
-    editor.render(ref.current);
+    editor.render(canvasRef.current);
   });
 
   return (
     <>
       <div className="Canvas">
         <canvas
-          ref={ref}
+          ref={canvasRef}
           width={1000}
           height={1000}
           style={{ width: 1000, height: 1000, backgroundColor: "black" }}

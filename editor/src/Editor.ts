@@ -136,8 +136,8 @@ class Cx {
     );
   }
 
-  transitionTo<S extends { new (cx: Cx): State }>(S: S) {
-    this.state = new S(this);
+  transitionTo(newState: State) {
+    this.state = newState;
     this.notifyListeners();
   }
 
@@ -188,19 +188,21 @@ class Normal implements State {
   selectTool(tool: Tool): void {
     switch (tool) {
       case "pan":
-        this.cx.transitionTo(Panning);
+        this.cx.transitionTo(new Panning(this.cx));
         break;
+      case "and":
+        this.cx.transitionTo(new Placing(this.cx, "and"));
     }
   }
 
   onMouseDown(pos: V2): void {
     this.cx.addSelectionRect(pos);
-    this.cx.transitionTo(Selecting);
+    this.cx.transitionTo(new Selecting(this.cx));
   }
 
   onKeyDown(key: string): void {
     if (key === "Shift") {
-      this.cx.transitionTo(Panning);
+      this.cx.transitionTo(new Panning(this.cx));
       return;
     }
   }
@@ -231,20 +233,20 @@ class Panning implements State {
 
   onKeyDown(key: string): void {
     if (key === "Escape") {
-      this.cx.transitionTo(Normal);
+      this.cx.transitionTo(new Normal(this.cx));
       return;
     }
   }
 
   onKeyUp(key: string): void {
     if (key === "Shift") {
-      this.cx.transitionTo(Normal);
+      this.cx.transitionTo(new Normal(this.cx));
       return;
     }
   }
 
   selectTool(tool: Tool): void {
-    this.cx.transitionTo(Normal);
+    this.cx.transitionTo(new Normal(this.cx));
     this.cx.selectTool(tool);
   }
 
@@ -263,7 +265,7 @@ class Selecting implements State {
 
   onMouseUp(_pos: V2): void {
     this.cx.removeSelectionRect();
-    this.cx.transitionTo(Normal);
+    this.cx.transitionTo(new Normal(this.cx));
   }
 
   onMouseMove(deltaPos: V2): void {
@@ -272,6 +274,29 @@ class Selecting implements State {
 
   selectedTool(): Tool | null {
     return "select";
+  }
+}
+
+class Placing implements State {
+  constructor(
+    private cx: Cx,
+    private tool: Tool,
+  ) {}
+
+  onMouseUp(pos: V2): void {
+    this.cx.transitionTo(new Normal(this.cx));
+    console.log("place");
+  }
+
+  onKeyDown(key: string): void {
+    if (key === "Escape") {
+      this.cx.transitionTo(new Normal(this.cx));
+      return;
+    }
+  }
+
+  selectedTool(): Tool | null {
+    return this.tool;
   }
 }
 
