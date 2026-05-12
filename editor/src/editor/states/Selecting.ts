@@ -1,4 +1,5 @@
-import type { Cx, Tool, V2 } from "../Cx";
+import type { Cx, Tool } from "../Cx";
+import type { V2 } from "../V2";
 import type { State } from "../State";
 import { Normal } from "./Normal";
 

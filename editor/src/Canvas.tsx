@@ -1,6 +1,6 @@
-import { useEffect, useRef, type ReactElement, type RefObject } from "react";
+import { useEffect, type ReactElement, type RefObject } from "react";
 import { type Editor } from "./editor/Editor";
-import { V2 } from "./editor/Cx";
+import { V2 } from "./editor/V2";
 
 type Props = { editor: Editor; canvasRef: RefObject<HTMLCanvasElement | null> };
 
@@ -31,7 +31,9 @@ function Canvas({ editor, canvasRef }: Props): ReactElement {
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onMouseMove={(ev) => {
-            editor.mouseMove(V2(ev.movementX, ev.movementY));
+            const deltaPos = V2(ev.movementX, ev.movementY);
+            const pos = V2(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);
+            editor.mouseMove(deltaPos, pos);
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onKeyDown={(ev) => {

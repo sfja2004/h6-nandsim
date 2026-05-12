@@ -1,4 +1,5 @@
-import { Cx, V2, type Tool } from "./Cx";
+import { Cx, type Tool } from "./Cx";
+import { V2 } from "./V2";
 
 export class Editor {
   private cx = new Cx();
@@ -19,8 +20,8 @@ export class Editor {
     this.cx.mouseUp(pos);
   }
 
-  mouseMove(deltaPos: V2) {
-    this.cx.mouseMove(deltaPos);
+  mouseMove(deltaPos: V2, pos: V2) {
+    this.cx.mouseMove(deltaPos, pos);
   }
 
   keyDown(key: string) {
