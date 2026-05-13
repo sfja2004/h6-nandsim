@@ -1,4 +1,4 @@
-import { Board } from "./Board";
+import { Board, ComponentRepo } from "./Board";
 import type { State } from "./State";
 import { Normal } from "./states/Normal";
 import { V2 } from "./V2";
@@ -9,12 +9,11 @@ export class Cx {
   private state = new Normal(this) as State;
   private updateActions: (() => void)[] = [];
 
-  public gridSize = Object.freeze(V2(20, 20));
-
   private selectionRect: SelectionRect | null = null;
   private componentPlacer: ComponentPlacer | null = null;
 
   public board = new Board();
+  public componentRepo = ComponentRepo.withDefaults();
 
   render(canvas: HTMLCanvasElement) {
     const c = canvas.getContext("2d")!;
@@ -23,8 +22,8 @@ export class Cx {
     c.fillStyle = "#666";
     c.fillRect(0, 0, canvas.width, canvas.height);
 
-    const gridSize = this.gridSize;
     const dotSize = { x: 2, y: 2 };
+    const gridSize = V2(20, 20);
 
     c.fillStyle = "#111";
     for (let y = 0; y < canvas.width / gridSize.x + 1; ++y) {
@@ -38,7 +37,7 @@ export class Cx {
       }
     }
 
-    this.board.render(canvas, c, this.offset, gridSize);
+    this.board.render(canvas, c, this.offset);
 
     if (this.selectionRect) {
       const {
@@ -61,7 +60,7 @@ export class Cx {
 
       c.strokeStyle = `#ffffff`;
       c.lineWidth = 2;
-      c.strokeRect(x - (x % gridSize.x), y - (y % gridSize.y), w, h);
+      c.strokeRect(x, y, w, h);
     }
   }
 
@@ -168,10 +167,7 @@ export class Cx {
   canvasPosToBoard(pos: V2): V2 {
     const absX = pos.x - this.offset.x;
     const absY = pos.y - this.offset.y;
-    return V2(
-      (absX - (absX % this.gridSize.x)) / this.gridSize.x,
-      (absY - (absY % this.gridSize.y)) / this.gridSize.y,
-    );
+    return V2(absX, absY);
   }
 }
 
@@ -185,4 +181,4 @@ export type ComponentPlacer = {
   size: V2;
 };
 
-export type Tool = "select" | "pan" | "and";
+export type Tool = "select" | "pan" | "and" | "or";

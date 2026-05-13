@@ -1,59 +1,88 @@
-import { rectsCollide, type V2 } from "./V2";
+import { rectsCollide, V2 } from "./V2";
 
 export class Board {
   private components: Component[] = [];
 
-  canPlaceComponent(pos: V2, size: V2): boolean {
+  canPlaceComponent(def: ComponentDef, pos: V2): boolean {
     return !this.components.some((comp) =>
-      rectsCollide(comp.pos, comp.size, pos, size),
+      rectsCollide(comp.pos, comp.def.size, pos, def.size),
     );
   }
 
-  placeComponent(pos: V2, size: V2, label: string) {
-    this.components.push({ pos, size, label });
+  placeComponent(def: ComponentDef, pos: V2) {
+    this.components.push({ def, pos });
   }
 
-  render(
-    canvas: HTMLCanvasElement,
-    c: CanvasRenderingContext2D,
-    offset: V2,
-    gridSize: Readonly<V2>,
-  ) {
+  render(_canvas: HTMLCanvasElement, c: CanvasRenderingContext2D, offset: V2) {
     for (const comp of this.components) {
       const {
+        def: {
+          size: { x: w, y: h },
+          label,
+        },
         pos: { x, y },
-        size: { x: w, y: h },
       } = comp;
 
-      c.fillStyle = `#0088cc`;
-      c.fillRect(
-        x * gridSize.x + offset.x,
-        y * gridSize.y + offset.y,
-        w * gridSize.x,
-        h * gridSize.y,
-      );
+      c.fillStyle = `#6abbde`;
+      c.fillRect(x + offset.x, y + offset.y, w, h);
       c.strokeStyle = `#333333`;
       c.lineWidth = 2;
-      c.strokeRect(
-        x * gridSize.x + offset.x,
-        y * gridSize.y + offset.y,
-        w * gridSize.x,
-        h * gridSize.y,
-      );
+      c.strokeRect(x + offset.x, y + offset.y, w, h);
       c.fillStyle = `#333333`;
       c.font = "bold 16px monospace";
-      const textMetrix = c.measureText(comp.label);
+      const textMetrix = c.measureText(label);
       c.fillText(
-        comp.label,
-        x * gridSize.x + offset.x + (w * gridSize.x) / 2 - textMetrix.width / 2,
-        y * gridSize.y + offset.y + 13 + (h * gridSize.y) / 2 - 16 / 2,
+        label,
+        x + offset.x + w / 2 - textMetrix.width / 2,
+        y + offset.y + 13 + h / 2 - 16 / 2,
       );
     }
   }
 }
 
+export class ComponentRepo {
+  private defs = new Map<string, ComponentDef>();
+
+  static withDefaults(): ComponentRepo {
+    const repo = new ComponentRepo();
+
+    repo.add("and", {
+      label: "and",
+      size: V2(80, 40),
+      inputs: [null, null],
+      outputs: [null],
+    });
+    repo.add("or", {
+      label: "or",
+      size: V2(80, 40),
+      inputs: [null, null],
+      outputs: [null],
+    });
+
+    return repo;
+  }
+
+  add(ident: string, def: ComponentDef) {
+    this.defs.set(ident, def);
+  }
+
+  get(ident: string): ComponentDef {
+    const def = this.defs.get(ident);
+    if (!def) {
+      throw new Error("should be defined");
+    }
+    return def;
+  }
+}
+
 type Component = {
+  def: ComponentDef;
   pos: V2;
+};
+
+export type ComponentDef = {
   size: V2;
   label: string;
+  inputs: (string | null)[];
+  outputs: (string | null)[];
 };

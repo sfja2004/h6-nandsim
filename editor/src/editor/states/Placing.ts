@@ -2,15 +2,20 @@ import { type Cx, type Tool } from "../Cx";
 import { V2 } from "../V2";
 import type { State } from "../State";
 import { Normal } from "./Normal";
+import type { ComponentDef } from "../Board";
 
 export class Placing implements State {
+  private compDef: ComponentDef;
+
   constructor(
     private cx: Cx,
     private tool: Tool,
-  ) {}
+  ) {
+    this.compDef = this.cx.componentRepo.get(this.tool);
+  }
 
   enterState(): void {
-    this.cx.addComponentPlacer(V2(0, 0), V2(20 * 4, 20 * 2));
+    this.cx.addComponentPlacer(V2(0, 0), this.compDef.size);
   }
 
   leaveState(): void {
@@ -19,9 +24,8 @@ export class Placing implements State {
 
   onMouseDown(pos: V2): void {
     const boardPos = this.cx.canvasPosToBoard(pos);
-    if (this.cx.board.canPlaceComponent(boardPos, V2(4, 2))) {
-      console.log("place");
-      this.cx.board.placeComponent(boardPos, V2(4, 2), "AND");
+    if (this.cx.board.canPlaceComponent(this.compDef, boardPos)) {
+      this.cx.board.placeComponent(this.compDef, boardPos);
       this.cx.transitionTo(new Normal(this.cx));
     }
   }

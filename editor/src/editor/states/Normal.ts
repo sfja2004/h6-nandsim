@@ -14,7 +14,8 @@ export class Normal implements State {
         this.cx.transitionTo(new Panning(this.cx));
         break;
       case "and":
-        this.cx.transitionTo(new Placing(this.cx, "and"));
+      case "or":
+        this.cx.transitionTo(new Placing(this.cx, tool));
     }
   }
 
