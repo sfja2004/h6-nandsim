@@ -19,6 +19,8 @@ export class Board {
         def: {
           size: { x: w, y: h },
           label,
+          inputs,
+          outputs,
         },
         pos: { x, y },
       } = comp;
@@ -28,6 +30,7 @@ export class Board {
       c.strokeStyle = `#333333`;
       c.lineWidth = 2;
       c.strokeRect(x + offset.x, y + offset.y, w, h);
+
       c.fillStyle = `#333333`;
       c.font = "bold 16px monospace";
       const textMetrix = c.measureText(label);
@@ -36,6 +39,9 @@ export class Board {
         x + offset.x + w / 2 - textMetrix.width / 2,
         y + offset.y + 13 + h / 2 - 16 / 2,
       );
+
+      const pinSpace = h / (inputs.length + 1);
+      for (let i = 0; i < inputs.length; ++i) {}
     }
   }
 }
