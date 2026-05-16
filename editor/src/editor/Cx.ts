@@ -1,10 +1,10 @@
 import { Board, ComponentRepo } from "./Board";
 import type { State } from "./State";
 import { Normal } from "./states/Normal";
-import { V2 } from "./V2";
+import { v2, V2 } from "./V2";
 
 export class Cx {
-  private offset = V2(0, 0);
+  public offset = v2(0, 0);
   private renderNeeded = false;
   private state = new Normal(this) as State;
   private updateActions: (() => void)[] = [];
@@ -23,7 +23,7 @@ export class Cx {
     c.fillRect(0, 0, canvas.width, canvas.height);
 
     const dotSize = { x: 2, y: 2 };
-    const gridSize = V2(20, 20);
+    const gridSize = v2(20, 20);
 
     c.fillStyle = "#111";
     for (let y = 0; y < canvas.width / gridSize.x + 1; ++y) {
@@ -69,6 +69,10 @@ export class Cx {
       this.render(canvas);
       this.renderNeeded = false;
     }
+  }
+
+  setRenderNeeded() {
+    this.renderNeeded = true;
   }
 
   mouseDown(pos: V2) {
@@ -130,7 +134,7 @@ export class Cx {
   }
 
   addSelectionRect(pos: V2) {
-    this.selectionRect = { pos, size: V2(0, 0) };
+    this.selectionRect = { pos, size: v2(0, 0) };
     this.renderNeeded = true;
   }
 
@@ -167,7 +171,7 @@ export class Cx {
   canvasPosToBoard(pos: V2): V2 {
     const absX = pos.x - this.offset.x;
     const absY = pos.y - this.offset.y;
-    return V2(absX, absY);
+    return v2(absX, absY);
   }
 }
 
@@ -181,4 +185,4 @@ export type ComponentPlacer = {
   size: V2;
 };
 
-export type Tool = "select" | "pan" | "and" | "or";
+export type Tool = string;

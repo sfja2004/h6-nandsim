@@ -1,5 +1,5 @@
 import type { Cx, Tool } from "../Cx";
-import type { V2 } from "../V2";
+import type { V2_ } from "../V2";
 import type { State } from "../State";
 import { Normal } from "./Normal";
 
@@ -8,15 +8,15 @@ export class Panning implements State {
 
   constructor(private cx: Cx) {}
 
-  onMouseDown(_pos: V2): void {
+  onMouseDown(_pos: V2_): void {
     this.dragging = true;
   }
 
-  onMouseUp(_pos: V2): void {
+  onMouseUp(_pos: V2_): void {
     this.dragging = false;
   }
 
-  onMouseMove(deltaPos: V2): void {
+  onMouseMove(deltaPos: V2_): void {
     if (this.dragging) {
       this.cx.moveOffset(deltaPos);
     }

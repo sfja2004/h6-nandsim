@@ -1,5 +1,5 @@
 import { type Cx, type Tool } from "../Cx";
-import { V2 } from "../V2";
+import { V2, v2 } from "../V2";
 import type { State } from "../State";
 import { Normal } from "./Normal";
 import type { ComponentDef } from "../Board";
@@ -15,7 +15,7 @@ export class Placing implements State {
   }
 
   enterState(): void {
-    this.cx.addComponentPlacer(V2(0, 0), this.compDef.size);
+    this.cx.addComponentPlacer(v2(0, 0), this.compDef.size);
   }
 
   leaveState(): void {

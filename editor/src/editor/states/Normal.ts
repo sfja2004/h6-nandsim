@@ -13,8 +13,11 @@ export class Normal implements State {
       case "pan":
         this.cx.transitionTo(new Panning(this.cx));
         break;
+      case "input":
+      case "output":
       case "and":
       case "or":
+      case "not":
         this.cx.transitionTo(new Placing(this.cx, tool));
     }
   }
@@ -22,6 +25,11 @@ export class Normal implements State {
   onMouseDown(pos: V2): void {
     this.cx.addSelectionRect(pos);
     this.cx.transitionTo(new Selecting(this.cx));
+  }
+
+  onMouseMove(_deltaPos: V2, pos: V2): void {
+    this.cx.board.updateMouseHover(pos.sub(this.cx.offset));
+    this.cx.setRenderNeeded();
   }
 
   onKeyDown(key: string): void {

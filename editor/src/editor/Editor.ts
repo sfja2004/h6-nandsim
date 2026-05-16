@@ -41,7 +41,7 @@ export class Editor {
   }
 
   tools(): Tool[] {
-    return ["select", "pan", "and", "or"];
+    return ["select", "pan", "input", "output", "and", "or", "not"];
   }
 
   addUpdateAction(action: () => void): object {
