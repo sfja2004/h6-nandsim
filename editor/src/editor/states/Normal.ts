@@ -23,8 +23,19 @@ export class Normal implements State {
   }
 
   onMouseDown(pos: V2): void {
-    this.cx.addSelectionRect(pos);
-    this.cx.transitionTo(new Selecting(this.cx));
+    if (
+      this.cx.board.handleMouseClick(
+        pos.sub(this.cx.offset),
+        (comp, i) => {},
+        (comp, i) => {},
+        (comp) => {},
+      ) === "handled"
+    ) {
+      return;
+    } else {
+      this.cx.addSelectionRect(pos);
+      this.cx.transitionTo(new Selecting(this.cx));
+    }
   }
 
   onMouseMove(_deltaPos: V2, pos: V2): void {

@@ -13,7 +13,7 @@ function App(): ReactElement {
       <h1>nandsim</h1>
       <div className="Editor">
         <Toolbar editor={editor} canvasRef={canvasRef} />
-        <Canvas editor={editor} canvasRef={canvasRef} />
+        <Canvas editor={editor} canvasRef={canvasRef} width={800} height={800} />
       </div>
     </>
   );

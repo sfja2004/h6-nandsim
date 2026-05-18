@@ -2,9 +2,9 @@ import { useEffect, type ReactElement, type RefObject } from "react";
 import { type Editor } from "./editor/Editor";
 import { v2 } from "./editor/V2";
 
-type Props = { editor: Editor; canvasRef: RefObject<HTMLCanvasElement | null> };
+type Props = { editor: Editor; canvasRef: RefObject<HTMLCanvasElement | null>, width: number, height: number };
 
-function Canvas({ editor, canvasRef }: Props): ReactElement {
+function Canvas({ editor, canvasRef, width, height }: Props): ReactElement {
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -16,9 +16,9 @@ function Canvas({ editor, canvasRef }: Props): ReactElement {
       <div className="Canvas">
         <canvas
           ref={canvasRef}
-          width={1000}
-          height={1000}
-          style={{ width: 1000, height: 1000, backgroundColor: "black" }}
+          width={width}
+          height={height}
+          style={{ width, height, backgroundColor: "black" }}
           tabIndex={0}
           onMouseDown={(ev) => {
             const pos = v2(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);

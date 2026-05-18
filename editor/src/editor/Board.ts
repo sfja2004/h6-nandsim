@@ -83,7 +83,7 @@ export class Board {
             this.hoveredOverOutput?.[0] === comp &&
             this.hoveredOverOutput[1] === i
           ) {
-            c.strokeStyle = `#bbbbbb`;
+            c.strokeStyle = `#eee`;
             c.lineWidth = 2;
             c.beginPath();
             c.arc(x + w, y + (i + 1) * pinSpace, 5, 0, Math.PI * 2);
@@ -134,6 +134,55 @@ export class Board {
         }
       }
     }
+  }
+
+  handleMouseClick(
+    pos: V2,
+    inputPinClicked: (comp: Component, i: number) => void,
+    outputPinClicked: (comp: Component, i: number) => void,
+    componentClicked: (comp: Component) => void,
+  ): "handled" | "not handled" {
+    for (const comp of this.components) {
+      const {
+        pos: { x, y },
+        def: {
+          size: { x: w, y: h },
+          inputs,
+          outputs,
+        },
+      } = comp;
+
+      if (
+        !pointInsideRect(
+          pos,
+          comp.pos.sub(v2(5, 5)),
+          comp.def.size.add(v2(10, 10)),
+        )
+      ) {
+        continue;
+      }
+      {
+        const pinSpace = h / (inputs.length + 1);
+        for (let i = 0; i < inputs.length; ++i) {
+          if (v2(x, y + (i + 1) * pinSpace).distance(pos) < 5) {
+            inputPinClicked(comp, i);
+            return "handled";
+          }
+        }
+      }
+      {
+        const pinSpace = h / (outputs.length + 1);
+        for (let i = 0; i < outputs.length; ++i) {
+          if (v2(x + w, y + (i + 1) * pinSpace).distance(pos) < 5) {
+            outputPinClicked(comp, i);
+            return "handled";
+          }
+        }
+      }
+      componentClicked(comp);
+      return "handled";
+    }
+    return "not handled";
   }
 }
 
