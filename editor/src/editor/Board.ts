@@ -1,3 +1,4 @@
+import type { Renderer } from "./Renderer";
 import { pointInsideRect, rectsCollide, v2, V2 } from "./V2";
 
 export class Board {
@@ -16,81 +17,9 @@ export class Board {
     this.components.push({ def, pos });
   }
 
-  render(_canvas: HTMLCanvasElement, c: CanvasRenderingContext2D, offset: V2) {
+  render(r: Renderer) {
     for (const comp of this.components) {
-      const {
-        def: {
-          size: { x: w, y: h },
-          label,
-          inputs,
-          outputs,
-        },
-        pos,
-      } = comp;
-
-      const [x, y] = [pos.x + offset.x, pos.y + offset.y];
-
-      c.fillStyle = `#6abbde`;
-      c.fillRect(x, y, w, h);
-      c.strokeStyle = `#333333`;
-      c.lineWidth = 2;
-      c.strokeRect(x, y, w, h);
-
-      c.fillStyle = `#333333`;
-      c.font = "bold 16px monospace";
-      const textMetrix = c.measureText(label);
-      c.fillText(
-        label,
-        x + w / 2 - textMetrix.width / 2,
-        y + 13 + h / 2 - 16 / 2,
-      );
-
-      {
-        const pinSpace = h / (inputs.length + 1);
-        for (let i = 0; i < inputs.length; ++i) {
-          if (inputs[i] !== null) {
-            throw new Error("pin text not implemented");
-          }
-          c.fillStyle = `#333333`;
-          c.beginPath();
-          c.arc(x, y + (i + 1) * pinSpace, 4, 0, Math.PI * 2);
-          c.fill();
-
-          if (
-            this.hoveredOverInput?.[0] === comp &&
-            this.hoveredOverInput[1] === i
-          ) {
-            c.strokeStyle = `#bbbbbb`;
-            c.lineWidth = 2;
-            c.beginPath();
-            c.arc(x, y + (i + 1) * pinSpace, 5, 0, Math.PI * 2);
-            c.stroke();
-          }
-        }
-      }
-      {
-        const pinSpace = h / (outputs.length + 1);
-        for (let i = 0; i < outputs.length; ++i) {
-          if (outputs[i] !== null) {
-            throw new Error("pin text not implemented");
-          }
-          c.fillStyle = `#333333`;
-          c.beginPath();
-          c.arc(x + w, y + (i + 1) * pinSpace, 4, 0, Math.PI * 2);
-          c.fill();
-
-          if (
-            this.hoveredOverOutput?.[0] === comp &&
-            this.hoveredOverOutput[1] === i
-          ) {
-            c.strokeStyle = `#eee`;
-            c.lineWidth = 2;
-            c.beginPath();
-            c.arc(x + w, y + (i + 1) * pinSpace, 5, 0, Math.PI * 2);
-            c.stroke();
-          }
-        }
-      }
+      r.drawComponent(comp, this.hoveredOverInput, this.hoveredOverOutput);
     }
   }
 
@@ -239,7 +168,7 @@ export class ComponentRepo {
   }
 }
 
-type Component = {
+export type Component = {
   def: ComponentDef;
   pos: V2;
 };

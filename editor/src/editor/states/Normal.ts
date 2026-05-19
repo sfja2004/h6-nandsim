@@ -2,25 +2,10 @@ import type { Cx, Tool } from "../Cx";
 import type { V2 } from "../V2";
 import type { State } from "../State";
 import { Panning } from "./Panning";
-import { Placing } from "./Placing";
-import { Selecting } from "./Selecting";
+import { SelectingBox } from "./SelectingBox";
 
 export class Normal implements State {
   constructor(private cx: Cx) {}
-
-  selectTool(tool: Tool): void {
-    switch (tool) {
-      case "pan":
-        this.cx.transitionTo(new Panning(this.cx));
-        break;
-      case "input":
-      case "output":
-      case "and":
-      case "or":
-      case "not":
-        this.cx.transitionTo(new Placing(this.cx, tool));
-    }
-  }
 
   onMouseDown(pos: V2): void {
     if (
@@ -34,7 +19,7 @@ export class Normal implements State {
       return;
     } else {
       this.cx.addSelectionRect(pos);
-      this.cx.transitionTo(new Selecting(this.cx));
+      this.cx.transitionTo(new SelectingBox(this.cx));
     }
   }
 

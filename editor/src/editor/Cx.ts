@@ -1,6 +1,9 @@
 import { Board, ComponentRepo } from "./Board";
+import { Renderer } from "./Renderer";
 import type { State } from "./State";
 import { Normal } from "./states/Normal";
+import { Panning } from "./states/Panning";
+import { Placing } from "./states/Placing";
 import { v2, V2 } from "./V2";
 
 export class Cx {
@@ -9,59 +12,20 @@ export class Cx {
   private state = new Normal(this) as State;
   private updateActions: (() => void)[] = [];
 
-  private selectionRect: SelectionRect | null = null;
+  private selectionBox: SelectionBox | null = null;
   private componentPlacer: ComponentPlacer | null = null;
 
   public board = new Board();
   public componentRepo = ComponentRepo.withDefaults();
 
   render(canvas: HTMLCanvasElement) {
-    const c = canvas.getContext("2d")!;
+    const r = new Renderer(canvas, this.offset);
 
-    c.imageSmoothingEnabled = false;
-    c.fillStyle = "#666";
-    c.fillRect(0, 0, canvas.width, canvas.height);
-
-    const dotSize = { x: 2, y: 2 };
-    const gridSize = v2(20, 20);
-
-    c.fillStyle = "#111";
-    for (let y = 0; y < canvas.width / gridSize.x + 1; ++y) {
-      for (let x = 0; x < canvas.height / gridSize.y + 1; ++x) {
-        c.fillRect(
-          (this.offset.x % gridSize.x) + x * gridSize.x - dotSize.x / 2,
-          (this.offset.y % gridSize.y) + y * gridSize.y - dotSize.y / 2,
-          dotSize.x,
-          dotSize.y,
-        );
-      }
-    }
-
-    this.board.render(canvas, c, this.offset);
-
-    if (this.selectionRect) {
-      const {
-        pos: { x, y },
-        size: { x: w, y: h },
-      } = this.selectionRect;
-
-      c.fillStyle = `#ff880088`;
-      c.fillRect(x, y, w, h);
-      c.strokeStyle = `#ff8800`;
-      c.lineWidth = 2;
-      c.strokeRect(x, y, w, h);
-    }
-
-    if (this.componentPlacer) {
-      const {
-        pos: { x, y },
-        size: { x: w, y: h },
-      } = this.componentPlacer;
-
-      c.strokeStyle = `#ffffff`;
-      c.lineWidth = 2;
-      c.strokeRect(x, y, w, h);
-    }
+    r.clear();
+    r.drawGrid();
+    this.board.render(r);
+    this.selectionBox?.render(r);
+    this.componentPlacer?.render(r);
   }
 
   renderIfNeeded(canvas: HTMLCanvasElement) {
@@ -91,16 +55,20 @@ export class Cx {
     this.state.onKeyUp?.(key);
   }
   selectTool(tool: Tool) {
-    // this is very much a hack so that other tools
-    // can be selected from any tool, without me
-    // having to add that in every state.
-    if (!(this.state instanceof Normal)) {
-      this.transitionTo(new Normal(this));
+    switch (tool) {
+      case "pan":
+        this.transitionTo(new Panning(this));
+        break;
+      case "input":
+      case "output":
+      case "and":
+      case "or":
+      case "not":
+        this.transitionTo(new Placing(this, tool));
+        break;
+      default:
+        this.transitionTo(new Normal(this));
     }
-    this.state.selectTool?.(tool);
-  }
-  selectedTool(): Tool | null {
-    return this.state.selectedTool?.() ?? null;
   }
 
   addUpdateAction(action: () => void): object {
@@ -134,25 +102,25 @@ export class Cx {
   }
 
   addSelectionRect(pos: V2) {
-    this.selectionRect = { pos, size: v2(0, 0) };
+    this.selectionBox = new SelectionBox(pos, v2(0, 0));
     this.renderNeeded = true;
   }
 
   removeSelectionRect() {
-    this.selectionRect = null;
+    this.selectionBox = null;
     this.renderNeeded = true;
   }
 
   moveSelectionRect(deltaPos: V2) {
-    if (this.selectionRect) {
-      this.selectionRect.size.x += deltaPos.x;
-      this.selectionRect.size.y += deltaPos.y;
+    if (this.selectionBox) {
+      this.selectionBox.size.x += deltaPos.x;
+      this.selectionBox.size.y += deltaPos.y;
       this.renderNeeded = true;
     }
   }
 
   addComponentPlacer(pos: V2, size: V2) {
-    this.componentPlacer = { pos, size };
+    this.componentPlacer = new ComponentPlacer(pos, size);
     this.renderNeeded = true;
   }
 
@@ -175,14 +143,26 @@ export class Cx {
   }
 }
 
-export type SelectionRect = {
-  pos: V2;
-  size: V2;
-};
+export class SelectionBox {
+  constructor(
+    public pos: V2,
+    public size: V2,
+  ) {}
 
-export type ComponentPlacer = {
-  pos: V2;
-  size: V2;
-};
+  render(r: Renderer) {
+    r.drawSelectionBox(this.pos, this.size);
+  }
+}
+
+export class ComponentPlacer {
+  constructor(
+    public pos: V2,
+    public size: V2,
+  ) {}
+
+  render(r: Renderer) {
+    r.drawComponentPlacer(this.pos, this.size);
+  }
+}
 
 export type Tool = string;
