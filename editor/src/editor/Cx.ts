@@ -1,15 +1,12 @@
 import { Board, ComponentRepo } from "./Board";
 import { Renderer } from "./Renderer";
-import type { State } from "./State";
-import { Normal } from "./states/Normal";
-import { Panning } from "./states/Panning";
-import { Placing } from "./states/Placing";
+import * as states from "./states";
 import { v2, V2 } from "./V2";
 
 export class Cx {
   public offset = v2(0, 0);
   private renderNeeded = false;
-  private state = new Normal(this) as State;
+  private state = new states.Normal(this) as states.State;
   private updateActions: (() => void)[] = [];
 
   private selectionBox: SelectionBox | null = null;
@@ -57,17 +54,17 @@ export class Cx {
   selectTool(tool: Tool) {
     switch (tool) {
       case "pan":
-        this.transitionTo(new Panning(this));
+        this.transitionTo(new states.Panning(this));
         break;
       case "input":
       case "output":
       case "and":
       case "or":
       case "not":
-        this.transitionTo(new Placing(this, tool));
+        this.transitionTo(new states.Placing(this, tool));
         break;
       default:
-        this.transitionTo(new Normal(this));
+        this.transitionTo(new states.Normal(this));
     }
   }
 
@@ -82,7 +79,7 @@ export class Cx {
     );
   }
 
-  transitionTo(newState: State) {
+  transitionTo(newState: states.State) {
     this.state.leaveState?.();
     this.state = newState;
     this.state.enterState?.();
