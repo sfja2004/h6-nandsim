@@ -1,4 +1,4 @@
-import type { Component } from "./Board";
+import type { ComponentKind } from "./Board";
 import { v2, type V2 } from "./V2";
 
 export class Renderer {
@@ -57,23 +57,10 @@ export class Renderer {
     c.strokeRect(x, y, w, h);
   }
 
-  drawComponent(
-    comp: Component,
-    hoveredOverInput: [Component, number] | null,
-    hoveredOverOutput: [Component, number] | null,
-  ) {
+  drawComponentBody(pos: V2, kind: ComponentKind) {
     const { c, offset } = this;
-    const {
-      def: {
-        size: { x: w, y: h },
-        label,
-        inputs,
-        outputs,
-      },
-      pos,
-    } = comp;
-
-    const [x, y] = [pos.x + offset.x, pos.y + offset.y];
+    const { x, y } = pos.add(offset);
+    const { x: w, y: h } = kind.size;
 
     c.fillStyle = `#6abbde`;
     c.fillRect(x, y, w, h);
@@ -83,52 +70,92 @@ export class Renderer {
 
     c.fillStyle = `#333333`;
     c.font = "bold 16px monospace";
-    const textMetrix = c.measureText(label);
+    const textMetrix = c.measureText(kind.label);
     c.fillText(
-      label,
+      kind.label,
       x + w / 2 - textMetrix.width / 2,
       y + 13 + h / 2 - 16 / 2,
     );
+  }
+  drawComponentBodySelected(pos: V2, kind: ComponentKind) {
+    const { c, offset } = this;
+    const { x, y } = pos.add(offset);
+    const { x: w, y: h } = kind.size;
 
-    {
-      const pinSpace = h / (inputs.length + 1);
-      for (let i = 0; i < inputs.length; ++i) {
-        if (inputs[i] !== null) {
-          throw new Error("pin text not implemented");
-        }
-        c.fillStyle = `#333333`;
-        c.beginPath();
-        c.arc(x, y + (i + 1) * pinSpace, 4, 0, Math.PI * 2);
-        c.fill();
+    c.fillStyle = `#6abbde`;
+    c.fillRect(x, y, w, h);
+    c.strokeStyle = `#ff8800`;
+    c.lineWidth = 2;
+    c.strokeRect(x, y, w, h);
 
-        if (hoveredOverInput?.[0] === comp && hoveredOverInput[1] === i) {
-          c.strokeStyle = `#bbbbbb`;
-          c.lineWidth = 2;
-          c.beginPath();
-          c.arc(x, y + (i + 1) * pinSpace, 5, 0, Math.PI * 2);
-          c.stroke();
-        }
-      }
-    }
-    {
-      const pinSpace = h / (outputs.length + 1);
-      for (let i = 0; i < outputs.length; ++i) {
-        if (outputs[i] !== null) {
-          throw new Error("pin text not implemented");
-        }
-        c.fillStyle = `#333333`;
-        c.beginPath();
-        c.arc(x + w, y + (i + 1) * pinSpace, 4, 0, Math.PI * 2);
-        c.fill();
+    c.fillStyle = `#333333`;
+    c.font = "bold 16px monospace";
+    const textMetrix = c.measureText(kind.label);
+    c.fillText(
+      kind.label,
+      x + w / 2 - textMetrix.width / 2,
+      y + 13 + h / 2 - 16 / 2,
+    );
+  }
 
-        if (hoveredOverOutput?.[0] === comp && hoveredOverOutput[1] === i) {
-          c.strokeStyle = `#eee`;
-          c.lineWidth = 2;
-          c.beginPath();
-          c.arc(x + w, y + (i + 1) * pinSpace, 5, 0, Math.PI * 2);
-          c.stroke();
-        }
-      }
-    }
+  drawComponentInputPin(pos: V2, pinOffset: number) {
+    const { c, offset } = this;
+    const { x, y } = pos.add(offset);
+
+    c.fillStyle = `#333333`;
+    c.beginPath();
+    c.arc(x, y + pinOffset, 4, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  drawComponentInputPinHover(pos: V2, pinOffset: number) {
+    const { c, offset } = this;
+    const { x, y } = pos.add(offset);
+
+    c.strokeStyle = `#eee`;
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(x, y + pinOffset, 5, 0, Math.PI * 2);
+    c.stroke();
+  }
+
+  drawComponentOutputPin(pos: V2, kind: ComponentKind, pinOffset: number) {
+    const { c, offset } = this;
+    const {
+      size: { x: w },
+    } = kind;
+    const { x, y } = pos.add(offset);
+
+    c.fillStyle = `#333333`;
+    c.beginPath();
+    c.arc(x + w, y + pinOffset, 4, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  drawComponentOutputPinHover(pos: V2, kind: ComponentKind, pinOffset: number) {
+    const { c, offset } = this;
+    const {
+      size: { x: w },
+    } = kind;
+    const { x, y } = pos.add(offset);
+
+    c.strokeStyle = `#eee`;
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(x + w, y + pinOffset, 5, 0, Math.PI * 2);
+    c.stroke();
+  }
+
+  drawConnectingWire(begin: V2, end: V2) {
+    const { c, offset } = this;
+    const { x: x0, y: y0 } = begin.add(offset);
+    const { x: x1, y: y1 } = end.add(offset);
+
+    c.strokeStyle = `#333333`;
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(x0, y0);
+    c.lineTo(x1, y1);
+    c.stroke();
   }
 }

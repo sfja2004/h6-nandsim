@@ -1,25 +1,61 @@
+import type { Selection } from "./Cx";
 import type { Renderer } from "./Renderer";
 import { pointInsideRect, rectsCollide, v2, V2 } from "./V2";
 
 export class Board {
-  private components: Component[] = [];
+  private components: PlacedComponent[] = [];
 
-  private hoveredOverInput: [Component, number] | null = null;
-  private hoveredOverOutput: [Component, number] | null = null;
+  private hoveredOverInput: [PlacedComponent, number] | null = null;
+  private hoveredOverOutput: [PlacedComponent, number] | null = null;
 
-  canPlaceComponent(def: ComponentDef, pos: V2): boolean {
+  constructor() {}
+
+  canPlaceComponent(kind: ComponentKind, pos: V2): boolean {
     return !this.components.some((comp) =>
-      rectsCollide(comp.pos, comp.def.size, pos, def.size),
+      rectsCollide(comp.pos, comp.kind.size, pos, kind.size),
     );
   }
 
-  placeComponent(def: ComponentDef, pos: V2) {
-    this.components.push({ def, pos });
+  placeComponent(kind: ComponentKind, pos: V2) {
+    this.components.push({ kind: kind, pos });
   }
 
-  render(r: Renderer) {
+  render(r: Renderer, selection: Selection | null) {
     for (const comp of this.components) {
-      r.drawComponent(comp, this.hoveredOverInput, this.hoveredOverOutput);
+      const { pos, kind } = comp;
+      if (selection?.isComponentSelected(comp)) {
+        r.drawComponentBodySelected(pos, kind);
+      } else {
+        r.drawComponentBody(pos, kind);
+      }
+
+      for (const { i, pinOffset } of kind.inputPinIter()) {
+        if (kind.inputs[i] !== null) {
+          throw new Error("pin text not implemented");
+        }
+        r.drawComponentInputPin(pos, pinOffset);
+
+        if (
+          this.hoveredOverInput?.[0] === comp &&
+          this.hoveredOverInput[1] === i
+        ) {
+          r.drawComponentInputPinHover(pos, pinOffset);
+        }
+      }
+
+      for (const { i, pinOffset } of kind.outputPinIter()) {
+        if (kind.outputs[i] !== null) {
+          throw new Error("pin text not implemented");
+        }
+        r.drawComponentOutputPin(pos, kind, pinOffset);
+
+        if (
+          this.hoveredOverOutput?.[0] === comp &&
+          this.hoveredOverOutput[1] === i
+        ) {
+          r.drawComponentOutputPinHover(pos, kind, pinOffset);
+        }
+      }
     }
   }
 
@@ -30,10 +66,8 @@ export class Board {
     for (const comp of this.components) {
       const {
         pos: { x, y },
-        def: {
-          size: { x: w, y: h },
-          inputs,
-          outputs,
+        kind: {
+          size: { x: w },
         },
       } = comp;
 
@@ -41,25 +75,19 @@ export class Board {
         !pointInsideRect(
           pos,
           comp.pos.sub(v2(5, 5)),
-          comp.def.size.add(v2(10, 10)),
+          comp.kind.size.add(v2(10, 10)),
         )
       ) {
         continue;
       }
-      {
-        const pinSpace = h / (inputs.length + 1);
-        for (let i = 0; i < inputs.length; ++i) {
-          if (v2(x, y + (i + 1) * pinSpace).distance(pos) < 5) {
-            this.hoveredOverInput = [comp, i];
-          }
+      for (const { i, pinOffset } of comp.kind.inputPinIter()) {
+        if (v2(x, y + pinOffset).distance(pos) < 6) {
+          this.hoveredOverInput = [comp, i];
         }
       }
-      {
-        const pinSpace = h / (outputs.length + 1);
-        for (let i = 0; i < outputs.length; ++i) {
-          if (v2(x + w, y + (i + 1) * pinSpace).distance(pos) < 5) {
-            this.hoveredOverOutput = [comp, i];
-          }
+      for (const { i, pinOffset } of comp.kind.outputPinIter()) {
+        if (v2(x + w, y + pinOffset).distance(pos) < 6) {
+          this.hoveredOverOutput = [comp, i];
         }
       }
     }
@@ -67,17 +95,15 @@ export class Board {
 
   handleMouseClick(
     pos: V2,
-    inputPinClicked: (comp: Component, i: number) => void,
-    outputPinClicked: (comp: Component, i: number) => void,
-    componentClicked: (comp: Component) => void,
+    inputPinClicked: (comp: PlacedComponent, i: number) => void,
+    outputPinClicked: (comp: PlacedComponent, i: number) => void,
+    componentClicked: (comp: PlacedComponent) => void,
   ): "handled" | "not handled" {
     for (const comp of this.components) {
       const {
         pos: { x, y },
-        def: {
-          size: { x: w, y: h },
-          inputs,
-          outputs,
+        kind: {
+          size: { x: w },
         },
       } = comp;
 
@@ -85,27 +111,21 @@ export class Board {
         !pointInsideRect(
           pos,
           comp.pos.sub(v2(5, 5)),
-          comp.def.size.add(v2(10, 10)),
+          comp.kind.size.add(v2(10, 10)),
         )
       ) {
         continue;
       }
-      {
-        const pinSpace = h / (inputs.length + 1);
-        for (let i = 0; i < inputs.length; ++i) {
-          if (v2(x, y + (i + 1) * pinSpace).distance(pos) < 5) {
-            inputPinClicked(comp, i);
-            return "handled";
-          }
+      for (const { i, pinOffset } of comp.kind.inputPinIter()) {
+        if (v2(x, y + pinOffset).distance(pos) < 6) {
+          inputPinClicked(comp, i);
+          return "handled";
         }
       }
-      {
-        const pinSpace = h / (outputs.length + 1);
-        for (let i = 0; i < outputs.length; ++i) {
-          if (v2(x + w, y + (i + 1) * pinSpace).distance(pos) < 5) {
-            outputPinClicked(comp, i);
-            return "handled";
-          }
+      for (const { i, pinOffset } of comp.kind.outputPinIter()) {
+        if (v2(x + w, y + pinOffset).distance(pos) < 6) {
+          outputPinClicked(comp, i);
+          return "handled";
         }
       }
       componentClicked(comp);
@@ -113,69 +133,96 @@ export class Board {
     }
     return "not handled";
   }
+
+  componentsInRect(pos: V2, size: V2): PlacedComponent[] {
+    return this.components.filter((comp) =>
+      rectsCollide(pos, size, comp.pos, comp.kind.size),
+    );
+  }
 }
 
 export class ComponentRepo {
-  private defs = new Map<string, ComponentDef>();
+  private defs = new Map<string, ComponentKind>();
 
   static withDefaults(): ComponentRepo {
     const repo = new ComponentRepo();
 
-    repo.add("input", {
-      label: "input",
-      size: v2(80, 40),
-      inputs: [],
-      outputs: [null],
-    });
-    repo.add("output", {
-      label: "output",
-      size: v2(80, 40),
-      inputs: [null],
-      outputs: [],
-    });
-    repo.add("and", {
-      label: "and",
-      size: v2(80, 40),
-      inputs: [null, null],
-      outputs: [null],
-    });
-    repo.add("or", {
-      label: "or",
-      size: v2(80, 40),
-      inputs: [null, null],
-      outputs: [null],
-    });
-    repo.add("not", {
-      label: "not",
-      size: v2(80, 40),
-      inputs: [null],
-      outputs: [null],
-    });
+    for (const { label, size, inputs, outputs } of defaultDefs) {
+      repo.add(label, new ComponentKind(size, label, inputs, outputs));
+    }
 
     return repo;
   }
 
-  add(ident: string, def: ComponentDef) {
-    this.defs.set(ident, def);
+  add(ident: string, kind: ComponentKind) {
+    this.defs.set(ident, kind);
   }
 
-  get(ident: string): ComponentDef {
-    const def = this.defs.get(ident);
-    if (!def) {
+  get(ident: string): ComponentKind {
+    const kind = this.defs.get(ident);
+    if (!kind) {
       throw new Error("should be defined");
     }
-    return def;
+    return kind;
   }
 }
 
-export type Component = {
-  def: ComponentDef;
+export type PlacedComponent = {
+  kind: ComponentKind;
   pos: V2;
 };
 
-export type ComponentDef = {
-  size: V2;
-  label: string;
-  inputs: (string | null)[];
-  outputs: (string | null)[];
-};
+export class ComponentKind {
+  constructor(
+    public size: V2,
+    public label: string,
+    public inputs: (string | null)[],
+    public outputs: (string | null)[],
+  ) {}
+
+  inputPinIter(): { i: number; pinOffset: number }[] {
+    return this.inputs.map((_, i) => ({
+      i,
+      pinOffset: ((i + 1) * this.size.y) / (this.inputs.length + 1),
+    }));
+  }
+  outputPinIter(): { i: number; pinOffset: number }[] {
+    return this.outputs.map((_, i) => ({
+      i,
+      pinOffset: ((i + 1) * this.size.y) / (this.outputs.length + 1),
+    }));
+  }
+}
+
+const defaultDefs = [
+  {
+    label: "input",
+    size: v2(80, 40),
+    inputs: [],
+    outputs: [null],
+  },
+  {
+    label: "output",
+    size: v2(80, 40),
+    inputs: [null],
+    outputs: [],
+  },
+  {
+    label: "and",
+    size: v2(80, 40),
+    inputs: [null, null],
+    outputs: [null],
+  },
+  {
+    label: "or",
+    size: v2(80, 40),
+    inputs: [null, null],
+    outputs: [null],
+  },
+  {
+    label: "not",
+    size: v2(80, 40),
+    inputs: [null],
+    outputs: [null],
+  },
+];

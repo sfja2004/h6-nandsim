@@ -1,5 +1,6 @@
-import type { ComponentDef } from "./Board";
-import type { Cx, Tool } from "./Cx";
+import { type ComponentKind } from "./Board";
+import { ConnectingWire, Selection } from "./Cx";
+import { SelectionBox, type Cx, type Tool } from "./Cx";
 import { v2, type V2 } from "./V2";
 
 export interface State {
@@ -20,21 +21,45 @@ export class Normal implements State {
     if (
       this.cx.board.handleMouseClick(
         pos.sub(this.cx.offset),
-        (comp, i) => {},
-        (comp, i) => {},
-        (comp) => {},
+        (comp, i) => {
+          console.log({ comp, i });
+          this.cx.connectingWire = new ConnectingWire(
+            {
+              tag: "InputPin",
+              comp,
+              i,
+            },
+            pos,
+          );
+          this.cx.transitionTo(new Wiring(this.cx));
+        },
+        (comp, i) => {
+          this.cx.connectingWire = new ConnectingWire(
+            {
+              tag: "OutputPin",
+              comp,
+              i,
+            },
+            pos,
+          );
+          this.cx.transitionTo(new Wiring(this.cx));
+        },
+        (comp) => {
+          this.cx.selection = new Selection();
+          this.cx.selection.addComponent(comp);
+          this.cx.transitionTo(new Selecting(this.cx));
+        },
       ) === "handled"
     ) {
       return;
     } else {
-      this.cx.addSelectionRect(pos);
+      this.cx.selectionBox = new SelectionBox(pos);
       this.cx.transitionTo(new SelectingBox(this.cx));
     }
   }
 
   onMouseMove(_deltaPos: V2, pos: V2): void {
     this.cx.board.updateMouseHover(pos.sub(this.cx.offset));
-    this.cx.setRenderNeeded();
   }
 
   onKeyDown(key: string): void {
@@ -88,7 +113,7 @@ export class Panning implements State {
 }
 
 export class Placing implements State {
-  private compDef: ComponentDef;
+  private compDef: ComponentKind;
 
   constructor(
     private cx: Cx,
@@ -131,21 +156,88 @@ export class Placing implements State {
 
 export class Selecting implements State {
   constructor(private cx: Cx) {}
+
+  onMouseDown(pos: V2): void {
+    if (
+      this.cx.board.handleMouseClick(
+        pos.sub(this.cx.offset),
+        (_comp, _i) => {},
+        (_comp, _i) => {},
+        (comp) => {
+          if (this.cx.keysPressed.has("Control")) {
+            this.cx.selection?.toggleComponent(comp);
+          } else {
+            this.cx.selection = new Selection();
+            this.cx.selection.addComponent(comp);
+          }
+        },
+      ) === "handled"
+    ) {
+      return;
+    } else {
+      if (this.cx.keysPressed.has("Control")) {
+        this.cx.selectionBox = new SelectionBox(pos);
+        this.cx.transitionTo(new SelectingBox(this.cx));
+      } else {
+        this.cx.selection = null;
+        this.cx.transitionTo(new Normal(this.cx));
+      }
+    }
+  }
 }
 
 export class SelectingBox implements State {
   constructor(private cx: Cx) {}
 
   onMouseUp(_pos: V2): void {
-    this.cx.removeSelectionRect();
-    this.cx.transitionTo(new Normal(this.cx));
+    if (!this.cx.selectionBox) {
+      throw new Error("expected selectionBox to active");
+    }
+    const { pos, size } = this.cx.selectionBox.normalized();
+    const selected = this.cx.board.componentsInRect(
+      pos.sub(this.cx.offset),
+      size,
+    );
+    if (selected.length > 0) {
+      this.cx.selection ??= new Selection();
+    }
+    for (const comp of selected) {
+      this.cx.selection?.addComponent(comp);
+    }
+    if (this.cx.selection) {
+      this.cx.selectionBox = null;
+      this.cx.transitionTo(new Selecting(this.cx));
+    } else {
+      this.cx.selectionBox = null;
+      this.cx.transitionTo(new Normal(this.cx));
+    }
   }
 
   onMouseMove(deltaPos: V2): void {
-    this.cx.moveSelectionRect(deltaPos);
+    this.cx.selectionBox?.move(deltaPos);
   }
 
   selectedTool(): Tool | null {
     return "select";
+  }
+}
+
+export class Wiring implements State {
+  constructor(private cx: Cx) {}
+
+  onMouseMove(_deltaPos: V2, pos: V2): void {
+    if (!this.cx.connectingWire) {
+      throw new Error("expected connectingWire to be active");
+    }
+    this.cx.connectingWire.move(pos);
+    this.cx.board.updateMouseHover(pos.sub(this.cx.offset));
+  }
+
+  onKeyDown(key: string): void {
+    if (key === "Escape") {
+      this.cx.transitionTo(new Normal(this.cx));
+      this.cx.connectingWire = null;
+      return;
+    }
   }
 }
