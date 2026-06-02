@@ -1,12 +1,22 @@
 import type { Selection } from "./Cx";
 import type { Renderer } from "./Renderer";
-import { pointInsideRect, rectsCollide, v2, V2 } from "./V2";
+import {
+  lineSegmentPointDistance,
+  pointInsideRect,
+  rectsCollide,
+  v2,
+  V2,
+} from "./V2";
 
 export class Board {
-  private components: PlacedComponent[] = [];
+  private components: Component[] = [];
+  private joints: Joint[] = [];
+  private wires: Wire[] = [];
 
-  private hoveredOverInput: [PlacedComponent, number] | null = null;
-  private hoveredOverOutput: [PlacedComponent, number] | null = null;
+  private hoveredOverInput: [Component, number] | null = null;
+  private hoveredOverOutput: [Component, number] | null = null;
+  private hoveredOverJoint: Joint | null = null;
+  private hoveredOverWire: Wire | null = null;
 
   constructor() {}
 
@@ -17,7 +27,7 @@ export class Board {
   }
 
   placeComponent(kind: ComponentKind, pos: V2) {
-    this.components.push({ kind: kind, pos });
+    this.components.push(new Component(kind, pos));
   }
 
   render(r: Renderer, selection: Selection | null) {
@@ -29,7 +39,23 @@ export class Board {
         r.drawComponentBody(pos, kind);
       }
 
-      for (const { i, pinOffset } of kind.inputPinIter()) {
+      for (const wire of this.wires) {
+        if (this.hoveredOverWire == wire) {
+          r.drawWireHovered(wire.beginPos(), wire.endPos());
+        } else {
+          r.drawWire(wire.beginPos(), wire.endPos());
+        }
+      }
+
+      for (const joint of this.joints) {
+        r.drawJoint(joint.pos);
+
+        if (this.hoveredOverJoint === joint) {
+          r.drawJointHover(joint.pos);
+        }
+      }
+
+      for (const [i, pinOffset] of kind.inputPinOffsets().entries()) {
         if (kind.inputs[i] !== null) {
           throw new Error("pin text not implemented");
         }
@@ -43,7 +69,7 @@ export class Board {
         }
       }
 
-      for (const { i, pinOffset } of kind.outputPinIter()) {
+      for (const [i, pinOffset] of kind.outputPinOffsets().entries()) {
         if (kind.outputs[i] !== null) {
           throw new Error("pin text not implemented");
         }
@@ -62,82 +88,92 @@ export class Board {
   updateMouseHover(pos: V2) {
     this.hoveredOverInput = null;
     this.hoveredOverOutput = null;
+    this.hoveredOverJoint = null;
+    this.hoveredOverWire = null;
 
     for (const comp of this.components) {
-      const {
-        pos: { x, y },
-        kind: {
-          size: { x: w },
-        },
-      } = comp;
+      const mouseOverResult = comp.mouseOver(pos);
+      switch (mouseOverResult?.tag) {
+        case "InputPin":
+          this.hoveredOverInput = [comp, mouseOverResult.i];
+          return;
+        case "OutputPin":
+          this.hoveredOverOutput = [comp, mouseOverResult.i];
+          return;
+      }
+    }
 
-      if (
-        !pointInsideRect(
-          pos,
-          comp.pos.sub(v2(5, 5)),
-          comp.kind.size.add(v2(10, 10)),
-        )
-      ) {
-        continue;
+    for (const joint of this.joints) {
+      if (joint.isMouseOver(pos)) {
+        this.hoveredOverJoint = joint;
+        return;
       }
-      for (const { i, pinOffset } of comp.kind.inputPinIter()) {
-        if (v2(x, y + pinOffset).distance(pos) < 6) {
-          this.hoveredOverInput = [comp, i];
-        }
-      }
-      for (const { i, pinOffset } of comp.kind.outputPinIter()) {
-        if (v2(x + w, y + pinOffset).distance(pos) < 6) {
-          this.hoveredOverOutput = [comp, i];
-        }
+    }
+
+    for (const wire of this.wires) {
+      if (wire.isMouseOver(pos)) {
+        this.hoveredOverWire = wire;
+        return;
       }
     }
   }
 
   handleMouseClick(
     pos: V2,
-    inputPinClicked: (comp: PlacedComponent, i: number) => void,
-    outputPinClicked: (comp: PlacedComponent, i: number) => void,
-    componentClicked: (comp: PlacedComponent) => void,
+    actions: {
+      onInputPinClicked?(comp: Component, i: number): void;
+      onOutputPinClicked?(comp: Component, i: number): void;
+      onComponentClicked?(comp: Component): void;
+      onJointClicked?(joint: Joint): void;
+      onWireClicked?(wire: Wire): void;
+    },
   ): "handled" | "not handled" {
     for (const comp of this.components) {
-      const {
-        pos: { x, y },
-        kind: {
-          size: { x: w },
-        },
-      } = comp;
+      const mouseOverResult = comp.mouseOver(pos);
+      switch (mouseOverResult?.tag) {
+        case "Component":
+          actions.onComponentClicked?.(comp);
+          return "handled";
+        case "InputPin":
+          actions.onInputPinClicked?.(comp, mouseOverResult.i);
+          return "handled";
+        case "OutputPin":
+          actions.onOutputPinClicked?.(comp, mouseOverResult.i);
+          return "handled";
+      }
+    }
 
-      if (
-        !pointInsideRect(
-          pos,
-          comp.pos.sub(v2(5, 5)),
-          comp.kind.size.add(v2(10, 10)),
-        )
-      ) {
-        continue;
+    for (const joint of this.joints) {
+      if (joint.isMouseOver(pos)) {
+        actions.onJointClicked?.(joint);
+        return "handled";
       }
-      for (const { i, pinOffset } of comp.kind.inputPinIter()) {
-        if (v2(x, y + pinOffset).distance(pos) < 6) {
-          inputPinClicked(comp, i);
-          return "handled";
-        }
+    }
+
+    for (const wire of this.wires) {
+      if (wire.isMouseOver(pos)) {
+        actions.onWireClicked?.(wire);
+        return "handled";
       }
-      for (const { i, pinOffset } of comp.kind.outputPinIter()) {
-        if (v2(x + w, y + pinOffset).distance(pos) < 6) {
-          outputPinClicked(comp, i);
-          return "handled";
-        }
-      }
-      componentClicked(comp);
-      return "handled";
     }
     return "not handled";
   }
 
-  componentsInRect(pos: V2, size: V2): PlacedComponent[] {
+  componentsInRect(pos: V2, size: V2): Component[] {
     return this.components.filter((comp) =>
       rectsCollide(pos, size, comp.pos, comp.kind.size),
     );
+  }
+
+  addJoint(pos: V2): Joint {
+    const t = new Joint(pos);
+    this.joints.push(t);
+    return t;
+  }
+  addWire(begin: WireConnection, end: WireConnection): Wire {
+    const wire = new Wire(begin, end);
+    this.wires.push(wire);
+    return wire;
   }
 }
 
@@ -167,10 +203,55 @@ export class ComponentRepo {
   }
 }
 
-export type PlacedComponent = {
-  kind: ComponentKind;
-  pos: V2;
-};
+export class Component {
+  constructor(
+    public kind: ComponentKind,
+    public pos: V2,
+  ) {}
+
+  mouseOver(pos: V2): ComponentMouseOverResult | null {
+    const {
+      pos: { x, y },
+      kind: {
+        size: { x: w },
+      },
+    } = this;
+
+    if (
+      !pointInsideRect(
+        pos,
+        this.pos.sub(v2(5, 5)),
+        this.kind.size.add(v2(10, 10)),
+      )
+    ) {
+      return null;
+    }
+
+    for (const [i, pinOffset] of this.kind.inputPinOffsets().entries()) {
+      if (v2(x, y + pinOffset).distance(pos) < 6) {
+        return { tag: "InputPin", i };
+      }
+    }
+    for (const [i, pinOffset] of this.kind.outputPinOffsets().entries()) {
+      if (v2(x + w, y + pinOffset).distance(pos) < 6) {
+        return { tag: "OutputPin", i };
+      }
+    }
+    return { tag: "Component" };
+  }
+
+  inputPinPos(i: number): V2 {
+    return this.pos.add(v2(0, this.kind.inputPinOffsets()[i]));
+  }
+
+  outputPinPos(i: number): V2 {
+    return this.pos.add(v2(this.kind.size.x, this.kind.outputPinOffsets()[i]));
+  }
+}
+
+type ComponentMouseOverResult =
+  | { tag: "Component" }
+  | { tag: "InputPin" | "OutputPin"; i: number };
 
 export class ComponentKind {
   constructor(
@@ -180,19 +261,65 @@ export class ComponentKind {
     public outputs: (string | null)[],
   ) {}
 
-  inputPinIter(): { i: number; pinOffset: number }[] {
-    return this.inputs.map((_, i) => ({
-      i,
-      pinOffset: ((i + 1) * this.size.y) / (this.inputs.length + 1),
-    }));
+  inputPinOffsets(): number[] {
+    return this.inputs.map(
+      (_, i) => ((i + 1) * this.size.y) / (this.inputs.length + 1),
+    );
   }
-  outputPinIter(): { i: number; pinOffset: number }[] {
-    return this.outputs.map((_, i) => ({
-      i,
-      pinOffset: ((i + 1) * this.size.y) / (this.outputs.length + 1),
-    }));
+  outputPinOffsets(): number[] {
+    return this.outputs.map(
+      (_, i) => ((i + 1) * this.size.y) / (this.outputs.length + 1),
+    );
   }
 }
+
+export class Joint {
+  constructor(public pos: V2) {}
+
+  isMouseOver(pos: V2): boolean {
+    return this.pos.distance(pos) < 6;
+  }
+}
+
+export class Wire {
+  constructor(
+    private begin: WireConnection,
+    private end: WireConnection,
+  ) {}
+
+  isMouseOver(pos: V2): boolean {
+    const distance = lineSegmentPointDistance(
+      this.beginPos(),
+      this.endPos(),
+      pos,
+    );
+    return distance !== null && distance < 6;
+  }
+
+  beginPos(): V2 {
+    return this.connectionPos(this.begin);
+  }
+
+  endPos(): V2 {
+    return this.connectionPos(this.end);
+  }
+
+  private connectionPos(connection: WireConnection): V2 {
+    switch (connection.tag) {
+      case "InputPin":
+        return connection.comp.inputPinPos(connection.i);
+      case "OutputPin":
+        return connection.comp.outputPinPos(connection.i);
+      case "Joint":
+        return connection.joint.pos;
+    }
+  }
+}
+
+export type WireConnection =
+  | { tag: "InputPin"; comp: Component; i: number }
+  | { tag: "OutputPin"; comp: Component; i: number }
+  | { tag: "Joint"; joint: Joint };
 
 const defaultDefs = [
   {

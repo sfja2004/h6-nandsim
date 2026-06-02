@@ -146,6 +146,53 @@ export class Renderer {
     c.stroke();
   }
 
+  drawWire(begin: V2, end: V2) {
+    const { c, offset } = this;
+    const { x: x0, y: y0 } = begin.add(offset);
+    const { x: x1, y: y1 } = end.add(offset);
+
+    c.strokeStyle = `#333333`;
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(x0, y0);
+    c.lineTo(x1, y1);
+    c.stroke();
+  }
+
+  drawWireHovered(begin: V2, end: V2) {
+    const { c, offset } = this;
+    const { x: x0, y: y0 } = begin.add(offset);
+    const { x: x1, y: y1 } = end.add(offset);
+
+    c.strokeStyle = `#444444`;
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(x0, y0);
+    c.lineTo(x1, y1);
+    c.stroke();
+  }
+
+  drawJoint(pos: V2) {
+    const { c, offset } = this;
+    const { x: x0, y: y0 } = pos.add(offset);
+
+    c.fillStyle = `#333333`;
+    c.beginPath();
+    c.arc(x0, y0, 3, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  drawJointHover(pos: V2) {
+    const { c, offset } = this;
+    const { x, y } = pos.add(offset);
+
+    c.strokeStyle = `#eee`;
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(x, y, 5, 0, Math.PI * 2);
+    c.stroke();
+  }
+
   drawConnectingWire(begin: V2, end: V2) {
     const { c, offset } = this;
     const { x: x0, y: y0 } = begin.add(offset);
@@ -157,5 +204,15 @@ export class Renderer {
     c.moveTo(x0, y0);
     c.lineTo(x1, y1);
     c.stroke();
+  }
+
+  drawConnectingWirePoint(pos: V2) {
+    const { c, offset } = this;
+    const { x: x0, y: y0 } = pos.add(offset);
+
+    c.fillStyle = `#333333`;
+    c.beginPath();
+    c.arc(x0, y0, 3, 0, Math.PI * 2);
+    c.fill();
   }
 }

@@ -17,13 +17,35 @@ export class V2 {
   len(): number {
     return Math.sqrt(this.x ** 2 + this.y ** 2);
   }
-
   distance(other: V2) {
     return this.rsub(other).len();
+  }
+
+  abs(): V2 {
+    return new V2(Math.abs(this.x), Math.abs(this.y));
   }
 }
 
 export const v2 = (x: number, y: number): V2 => new V2(x, y);
+
+export function lineSegmentPointDistance(p1: V2, p2: V2, p: V2): number | null {
+  const len = p2.sub(p1).len();
+  const dist1 = p1.sub(p).len();
+  const dist2 = p2.sub(p).len();
+
+  return dist1 < len && dist2 < len ? linePointDistance(p1, p2, p) : null;
+}
+
+export function linePointDistance(p1: V2, p2: V2, p: V2): number {
+  const { x: x1, y: y1 } = p1;
+  const { x: x2, y: y2 } = p2;
+  const { x, y } = p;
+
+  return (
+    Math.abs((y2 - y1) * x - (x2 - x1) * y + x2 * y1 - y2 * x1) /
+    Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+  );
+}
 
 export function rectsCollide(
   { x: ax, y: ay }: V2,
