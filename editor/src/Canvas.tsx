@@ -2,7 +2,12 @@ import { useEffect, type ReactElement, type RefObject } from "react";
 import { type Editor } from "./editor/Editor";
 import { v2 } from "./editor/V2";
 
-type Props = { editor: Editor; canvasRef: RefObject<HTMLCanvasElement | null>, width: number, height: number };
+type Props = {
+  editor: Editor;
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  width: number;
+  height: number;
+};
 
 function Canvas({ editor, canvasRef, width, height }: Props): ReactElement {
   useEffect(() => {
@@ -38,9 +43,11 @@ function Canvas({ editor, canvasRef, width, height }: Props): ReactElement {
           }}
           onKeyDown={(ev) => {
             editor.keyDown(ev.key);
+            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onKeyUp={(ev) => {
             editor.keyUp(ev.key);
+            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
         />
       </div>

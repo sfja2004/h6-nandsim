@@ -48,7 +48,11 @@ export class Board {
       }
 
       for (const joint of this.joints) {
-        r.drawJoint(joint.pos);
+        if (selection?.isJointSelected(joint)) {
+          r.drawJointSelected(joint.pos);
+        } else {
+          r.drawJoint(joint.pos);
+        }
 
         if (this.hoveredOverJoint === joint) {
           r.drawJointHover(joint.pos);
@@ -164,6 +168,9 @@ export class Board {
       rectsCollide(pos, size, comp.pos, comp.kind.size),
     );
   }
+  jointsInRect(pos: V2, size: V2): Joint[] {
+    return this.joints.filter((joint) => pointInsideRect(joint.pos, pos, size));
+  }
 
   addJoint(pos: V2): Joint {
     const t = new Joint(pos);
@@ -174,6 +181,16 @@ export class Board {
     const wire = new Wire(begin, end);
     this.wires.push(wire);
     return wire;
+  }
+
+  deleteSelection(selection: Selection) {
+    this.components = this.components.filter(
+      (comp) => !selection.isComponentSelected(comp),
+    );
+    this.joints = this.joints.filter(
+      (joint) => !selection.isJointSelected(joint),
+    );
+    this.wires = this.wires.filter((wire) => !wire.isSelected(selection));
   }
 }
 
@@ -294,6 +311,26 @@ export class Wire {
       pos,
     );
     return distance !== null && distance < 6;
+  }
+
+  isSelected(selection: Selection): boolean {
+    return (
+      this.connectionIsSelected(this.begin, selection) ||
+      this.connectionIsSelected(this.end, selection)
+    );
+  }
+
+  private connectionIsSelected(
+    connection: WireConnection,
+    selection: Selection,
+  ): boolean {
+    switch (connection.tag) {
+      case "InputPin":
+      case "OutputPin":
+        return selection.isComponentSelected(connection.comp);
+      case "Joint":
+        return selection.isJointSelected(connection.joint);
+    }
   }
 
   beginPos(): V2 {

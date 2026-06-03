@@ -182,6 +182,18 @@ export class Renderer {
     c.fill();
   }
 
+  drawJointSelected(pos: V2) {
+    const { c, offset } = this;
+    const { x, y } = pos.add(offset);
+
+    this.drawJoint(pos);
+    c.strokeStyle = `#ff8800`;
+    c.lineWidth = 1;
+    c.beginPath();
+    c.arc(x, y, 5, 0, Math.PI * 2);
+    c.stroke();
+  }
+
   drawJointHover(pos: V2) {
     const { c, offset } = this;
     const { x, y } = pos.add(offset);

@@ -1,4 +1,4 @@
-import { type ComponentKind } from "./Board";
+import { Component, Joint, type ComponentKind } from "./Board";
 import { ConnectingWire, Selection, type ConnectingWireKind } from "./Cx";
 import { SelectionBox, type Cx, type Tool } from "./Cx";
 import { v2, type V2 } from "./V2";
@@ -43,11 +43,17 @@ export class Normal implements State {
           this.cx.transitionTo(new Selecting(this.cx));
         },
         onJointClicked: (joint) => {
-          this.cx.connectingWire = new ConnectingWire(
-            { tag: "Joint", joint },
-            pos.sub(this.cx.offset),
-          );
-          this.cx.transitionTo(new Wiring(this.cx));
+          if (this.cx.keysPressed.has("Control")) {
+            this.cx.selection = new Selection();
+            this.cx.selection.addJoint(joint);
+            this.cx.transitionTo(new Selecting(this.cx));
+          } else {
+            this.cx.connectingWire = new ConnectingWire(
+              { tag: "Joint", joint },
+              pos.sub(this.cx.offset),
+            );
+            this.cx.transitionTo(new Wiring(this.cx));
+          }
         },
       }) !== "handled"
     ) {
@@ -57,7 +63,7 @@ export class Normal implements State {
   }
 
   onMouseMove(_deltaPos: V2, pos: V2): void {
-    if (this.isMouseDown && this.dragStart.sub(pos).len() > 40) {
+    if (this.isMouseDown && this.dragStart.sub(pos).len() > 5) {
       this.cx.selectionBox = new SelectionBox(
         this.dragStart,
         pos.sub(this.dragStart),
@@ -160,6 +166,8 @@ export class Placing implements State {
 }
 
 export class Selecting implements State {
+  private isMouseDown = false;
+
   constructor(private cx: Cx) {}
 
   onMouseDown(pos: V2): void {
@@ -168,9 +176,17 @@ export class Selecting implements State {
         onComponentClicked: (comp) => {
           if (this.cx.keysPressed.has("Control")) {
             this.cx.selection?.toggleComponent(comp);
-          } else {
+          } else if (!this.cx.selection?.isComponentSelected(comp)) {
             this.cx.selection = new Selection();
             this.cx.selection.addComponent(comp);
+          }
+        },
+        onJointClicked: (joint) => {
+          if (this.cx.keysPressed.has("Control")) {
+            this.cx.selection?.toggleJoint(joint);
+          } else if (!this.cx.selection?.isJointSelected(joint)) {
+            this.cx.selection = new Selection();
+            this.cx.selection.addJoint(joint);
           }
         },
       }) !== "handled"
@@ -180,9 +196,46 @@ export class Selecting implements State {
         this.cx.transitionTo(new SelectingBox(this.cx));
       } else {
         this.cx.selection = null;
-        this.cx.transitionTo(new Normal(this.cx));
+        this.cx.selectionBox = new SelectionBox(pos);
+        this.cx.transitionTo(new SelectingBox(this.cx));
       }
     }
+
+    this.isMouseDown = true;
+  }
+
+  onMouseUp(_pos: V2): void {
+    this.isMouseDown = false;
+  }
+
+  onMouseMove(_deltaPos: V2, pos: V2): void {
+    this.cx.board.updateMouseHover(pos.sub(this.cx.offset));
+    if (this.isMouseDown) {
+      this.cx.transitionTo(new Moving(this.cx));
+    }
+  }
+
+  onKeyDown(key: string): void {
+    if (key === "Delete") {
+      if (!this.cx.selection) {
+        throw new Error("expected selection");
+      }
+      this.cx.board.deleteSelection(this.cx.selection);
+      this.cx.selection = null;
+      this.cx.transitionTo(new Normal(this.cx));
+    }
+  }
+}
+
+export class Moving implements State {
+  constructor(private cx: Cx) {}
+
+  onMouseUp(_pos: V2): void {
+    this.cx.transitionTo(new Selecting(this.cx));
+  }
+
+  onMouseMove(deltaPos: V2, _pos: V2): void {
+    this.cx.selection?.move(deltaPos);
   }
 }
 
@@ -194,16 +247,24 @@ export class SelectingBox implements State {
       throw new Error("expected selectionBox to active");
     }
     const { pos, size } = this.cx.selectionBox.normalized();
-    const selected = this.cx.board.componentsInRect(
+
+    const components = this.cx.board.componentsInRect(
       pos.sub(this.cx.offset),
       size,
     );
-    if (selected.length > 0) {
+    const joints = this.cx.board.jointsInRect(pos.sub(this.cx.offset), size);
+
+    if (components.length > 0 || joints.length > 0) {
       this.cx.selection ??= new Selection();
     }
-    for (const comp of selected) {
+
+    for (const comp of components) {
       this.cx.selection?.addComponent(comp);
     }
+    for (const joint of joints) {
+      this.cx.selection?.addJoint(joint);
+    }
+
     if (this.cx.selection) {
       this.cx.selectionBox = null;
       this.cx.transitionTo(new Selecting(this.cx));
@@ -234,7 +295,12 @@ export class Wiring implements State {
           this.cx.transitionTo(new Normal(this.cx));
         },
         onOutputPinClicked: (comp, i) => {
-          this.cx.connectingWire!.connectToInput(this.cx.board, comp, i);
+          this.cx.connectingWire!.connectToOutput(this.cx.board, comp, i);
+          this.cx.connectingWire = null;
+          this.cx.transitionTo(new Normal(this.cx));
+        },
+        onJointClicked: (joint) => {
+          this.cx.connectingWire!.connectToJoint(this.cx.board, joint);
           this.cx.connectingWire = null;
           this.cx.transitionTo(new Normal(this.cx));
         },

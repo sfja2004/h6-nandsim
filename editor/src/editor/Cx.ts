@@ -175,10 +175,14 @@ export class ComponentPlacer {
 }
 
 export class Selection {
-  selectedComponents = new Set<Component>();
+  private selectedComponents = new Set<Component>();
+  private selectedJoints = new Set<Joint>();
 
   addComponent(comp: Component) {
     this.selectedComponents.add(comp);
+  }
+  addJoint(joint: Joint) {
+    this.selectedJoints.add(joint);
   }
 
   toggleComponent(comp: Component) {
@@ -188,9 +192,28 @@ export class Selection {
       this.selectedComponents.add(comp);
     }
   }
+  toggleJoint(joint: Joint) {
+    if (this.selectedJoints.has(joint)) {
+      this.selectedJoints.delete(joint);
+    } else {
+      this.selectedJoints.add(joint);
+    }
+  }
 
   isComponentSelected(comp: Component) {
     return this.selectedComponents.has(comp);
+  }
+  isJointSelected(joint: Joint) {
+    return this.selectedJoints.has(joint);
+  }
+
+  move(deltaPos: V2) {
+    for (const comp of this.selectedComponents) {
+      comp.pos = comp.pos.add(deltaPos);
+    }
+    for (const joint of this.selectedJoints) {
+      joint.pos = joint.pos.add(deltaPos);
+    }
   }
 }
 
@@ -223,6 +246,10 @@ export class ConnectingWire {
 
   connectToOutput(board: Board, comp: Component, i: number) {
     this.pushWire(board, { tag: "OutputPin", comp, i });
+  }
+
+  connectToJoint(board: Board, joint: Joint) {
+    this.pushWire(board, { tag: "Joint", joint });
   }
 
   private pushWire(board: Board, end: WireConnection) {
