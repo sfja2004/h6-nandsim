@@ -8,6 +8,7 @@ import {
 import { Renderer } from "./Renderer";
 import * as states from "./states";
 import { v2, V2 } from "./V2";
+import * as ir from "./ir";
 
 export type Tool = string;
 
@@ -135,6 +136,18 @@ export class Cx {
     const absX = pos.x - this.offset.x;
     const absY = pos.y - this.offset.y;
     return v2(absX, absY);
+  }
+
+  runSimulation() {
+    const comp = this.board.toIr();
+    console.log("Before optimizing");
+    console.log(new ir.ComponentPrinter().stringify(comp));
+
+    const optimizer = new ir.ComponentOptimizer(comp);
+    optimizer.optimize();
+
+    console.log("After optimizing");
+    console.log(new ir.ComponentPrinter().stringify(comp));
   }
 }
 

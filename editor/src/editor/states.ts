@@ -20,6 +20,10 @@ export class Normal implements State {
 
   constructor(private cx: Cx) {}
 
+  enterState(): void {
+    this.cx.runSimulation();
+  }
+
   onMouseDown(pos: V2): void {
     if (
       this.cx.board.handleMouseClick(pos.sub(this.cx.offset), {
