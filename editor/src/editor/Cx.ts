@@ -141,13 +141,12 @@ export class Cx {
   runSimulation() {
     const comp = this.board.toIr();
     console.log("Before optimizing");
-    console.log(new ir.ComponentPrinter().stringify(comp));
+    console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
 
-    const optimizer = new ir.ComponentOptimizer(comp);
-    optimizer.optimize();
+    new ir.ComponentOptimizer(comp).optimize();
 
     console.log("After optimizing");
-    console.log(new ir.ComponentPrinter().stringify(comp));
+    console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
   }
 }
 
