@@ -41,6 +41,10 @@ function Canvas({ editor, canvasRef, width, height }: Props): ReactElement {
             editor.mouseMove(deltaPos, pos);
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
+          onMouseLeave={(ev) => {
+            editor.mouseLeave();
+            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
+          }}
           onKeyDown={(ev) => {
             editor.keyDown(ev.key);
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);

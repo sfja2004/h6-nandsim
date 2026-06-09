@@ -13,15 +13,22 @@ export class Editor {
   }
 
   mouseDown(pos: V2) {
+    this.cx.eventBus.send({ tag: "MouseDown", pos });
     this.cx.mouseDown(pos);
   }
 
   mouseUp(pos: V2) {
+    this.cx.eventBus.send({ tag: "MouseUp", pos });
     this.cx.mouseUp(pos);
   }
 
   mouseMove(deltaPos: V2, pos: V2) {
+    this.cx.eventBus.send({ tag: "MouseMove", pos, deltaPos });
     this.cx.mouseMove(deltaPos, pos);
+  }
+
+  mouseLeave() {
+    this.cx.eventBus.send({ tag: "MouseLeave" });
   }
 
   keyDown(key: string) {

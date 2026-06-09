@@ -9,6 +9,9 @@ import { Renderer } from "./Renderer";
 import * as states from "./states";
 import { v2, V2 } from "./V2";
 import * as ir from "./ir";
+import { Sim } from "./sim";
+import { EventBus } from "./events";
+import { Mouse } from "./Mouse";
 
 export type Tool = string;
 
@@ -27,6 +30,9 @@ export class Cx {
   public componentRepo = ComponentRepo.withDefaults();
 
   public keysPressed = new Set<string>();
+
+  public eventBus = new EventBus();
+  public mouse = new Mouse(this.eventBus);
 
   render(canvas: HTMLCanvasElement) {
     const r = new Renderer(canvas, this.offset);
@@ -102,7 +108,7 @@ export class Cx {
   transitionTo(newState: states.State) {
     this.state.leaveState?.();
     this.state = newState;
-    console.log(`Entering state ${newState.constructor.name}`);
+    // console.log(`Entering state ${newState.constructor.name}`);
     this.state.enterState?.();
     this.notifyListeners();
   }
@@ -139,14 +145,14 @@ export class Cx {
   }
 
   runSimulation() {
-    const comp = this.board.toIr();
-    console.log("Before optimizing");
-    console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
-
-    new ir.ComponentOptimizer(comp).optimize();
-
-    console.log("After optimizing");
-    console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
+    // const comp = this.board.toIr();
+    // console.log("Before optimizing");
+    // console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
+    // new ir.ComponentOptimizer(comp).optimize();
+    // console.log("After optimizing");
+    // console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
+    // const sim = new Sim(comp, [], []);
+    // sim.simulate();
   }
 }
 
