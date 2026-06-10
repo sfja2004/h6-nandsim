@@ -25,6 +25,11 @@ export class V2 {
     return new V2(Math.abs(this.x), Math.abs(this.y));
   }
 
+  assign(rhs: V2) {
+    this.x = rhs.x;
+    this.y = rhs.y;
+  }
+
   toString(): string {
     return `V2(${this.x}, ${this.y})`;
   }

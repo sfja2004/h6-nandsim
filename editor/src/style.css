@@ -45,7 +45,14 @@
   .Tabbar {
     display: flex;
     flex-direction: row;
-    gap: 2px;
+    justify-content: space-between;
+
+    > div {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      gap: 5px;
+    }
 
     button {
       padding-left: 5px;

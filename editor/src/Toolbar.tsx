@@ -17,9 +17,9 @@ function Toolbar({ editor, canvasRef }: Props): ReactElement {
       <div className="Toolbar">
         <h2>Toolbar</h2>
         <div>
-          {editor.tools().map((tool, key) => (
+          {editor.availableTools().map((tool, key) => (
             <button
-              key={`${key}`}
+              key={key}
               className={selectedTool === tool ? "active" : ""}
               onClick={() => {
                 editor.events.send({ tag: "SelectTool", tool });
@@ -30,9 +30,7 @@ function Toolbar({ editor, canvasRef }: Props): ReactElement {
             </button>
           ))}
         </div>
-        <div>
-          <button className="add">+</button>
-        </div>
+        <div></div>
       </div>
     </>
   );

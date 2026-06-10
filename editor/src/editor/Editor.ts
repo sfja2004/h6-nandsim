@@ -10,31 +10,39 @@ import { v2, type V2 } from "./V2";
 import { ViewPos } from "./ViewPos";
 import { type ComponentKind } from "./Board";
 import type { EventUnsub } from "./events";
+import { Project } from "./Project";
 
 export class Editor {
   public events = new EventBus();
   public viewpos = new ViewPos(this.events);
-  private renderNeeded = false;
+  public mouse = new Mouse(this.events);
 
-  private state: State = new Normal(this);
+  public project = Project.loadLocalStoreOrInitNew(this.events);
+  public board = this.project.currentBoard();
 
   public selectionBox: SelectionBox | null = null;
   private componentPlacer: ComponentPlacer | null = null;
   public selection: Selection | null = null;
   public connectingWire: ConnectingWire | null = null;
 
-  public board = new Board();
-  public componentRepo = ComponentRepo.withDefaults();
-
   public keysPressed = new Set<string>();
 
-  public mouse = new Mouse(this.events);
+  private state: State = new Normal(this);
 
   constructor() {
-    this.state.enter();
-
     this.events.subscribe(
-      ["MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "SelectTool"],
+      [
+        "MouseDown",
+        "MouseUp",
+        "MouseMove",
+        "KeyDown",
+        "KeyUp",
+        "SelectTool",
+        "CreateTab",
+        "SelectTab",
+        "SaveComponent",
+        "RenameComponent",
+      ],
       (ev) => {
         switch (ev.tag) {
           case "KeyDown":
@@ -45,10 +53,30 @@ export class Editor {
             break;
           case "SelectTool":
             this.onSelectTool(ev.tool);
+            break;
+          case "CreateTab": {
+            const idx = this.project.newTab();
+            this.switchTab(idx);
+            break;
+          }
+          case "SelectTab": {
+            this.switchTab(ev.idx);
+            break;
+          }
+          case "SaveComponent": {
+            this.project.saveComponent();
+            break;
+          }
+          case "RenameComponent": {
+            this.project.renameComponent(ev.newName);
+            break;
+          }
         }
-        this.renderNeeded = true;
+        this.events.send({ tag: "RenderRequest" });
       },
     );
+
+    this.state.enter();
   }
 
   render(canvas: HTMLCanvasElement) {
@@ -62,29 +90,12 @@ export class Editor {
     this.connectingWire?.render(r);
   }
 
-  renderIfNeeded(canvas: HTMLCanvasElement) {
-    if (this.renderNeeded) {
-      this.render(canvas);
-      this.renderNeeded = false;
-    }
+  availableBoardEditors(): string[] {
+    return this.project.availableBoardEditors();
   }
 
-  private onSelectTool(tool: string) {
-    switch (tool) {
-      case "pan":
-        this.transitionTo(new Panning(this));
-        break;
-      case "input":
-      case "output":
-      case "and":
-      case "or":
-      case "not":
-        this.transitionTo(new Placing(this, tool));
-        break;
-      default:
-        this.transitionTo(new Normal(this));
-    }
-    this.events.send({ tag: "ShowSelectedTool", tool });
+  availableTools(): string[] {
+    return this.project.availableTools();
   }
 
   transitionTo(newState: State) {
@@ -118,9 +129,34 @@ export class Editor {
     // const sim = new Sim(comp, [], []);
     // sim.simulate();
   }
+  private onSelectTool(tool: string) {
+    switch (tool) {
+      case "pan":
+        this.transitionTo(new Panning(this));
+        break;
+      case "input":
+      case "output":
+      case "and":
+      case "or":
+      case "not":
+        this.transitionTo(new Placing(this, tool));
+        break;
+      default:
+        this.transitionTo(new Normal(this));
+    }
+    this.events.send({ tag: "ShowSelectedTool", tool });
+  }
 
-  tools(): string[] {
-    return ["select", "pan", "input", "output", "and", "or", "not"];
+  private switchTab(idx: number) {
+    this.project.switchTab(idx);
+    this.events.send({ tag: "ShowSelectedTab", idx });
+    this.selectionBox = null;
+    this.componentPlacer = null;
+    this.selection = null;
+    this.connectingWire = null;
+    this.viewpos.offset.assign(v2(0, 0));
+    this.board = this.project.currentBoard();
+    this.transitionTo(new Normal(this));
   }
 }
 
@@ -136,7 +172,13 @@ class Normal implements State {
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
-      ["MouseDownOffset", "MouseMoveOffset", "MouseDragBegin", "KeyDown"],
+      [
+        "MouseDownOffset",
+        "MouseMoveOffset",
+        "MouseDragBegin",
+        "KeyDown",
+        "MouseDoubleClick",
+      ],
       (ev) => {
         switch (ev.tag) {
           case "MouseDownOffset":
@@ -155,6 +197,15 @@ class Normal implements State {
               this.cx.transitionTo(new Panning(this.cx));
               return;
             }
+            break;
+          }
+          case "MouseDoubleClick": {
+            this.cx.board.handleMouseClick(ev.pos, {
+              onComponentClicked: (comp) => {
+                if (comp.kind.label === "input") {
+                }
+              },
+            });
             break;
           }
         }
@@ -256,7 +307,7 @@ class Placing implements State {
     private cx: Editor,
     private tool: string,
   ) {
-    this.compDef = this.cx.componentRepo.get(this.tool);
+    this.compDef = this.cx.project.componentRepo.get(this.tool);
   }
 
   enter(): void {

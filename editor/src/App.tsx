@@ -11,13 +11,12 @@ function App(): ReactElement {
 
   return (
     <>
-      <h1>nandsim</h1>
       <div className="Editor">
         <div>
           <Toolbar editor={editor} canvasRef={canvasRef} />
         </div>
         <main>
-          <Tabbar editor={editor} />
+          <Tabbar editor={editor} canvasRef={canvasRef} />
           <Canvas editor={editor} canvasRef={canvasRef} />
         </main>
       </div>

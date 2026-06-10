@@ -21,6 +21,27 @@ export class Board {
 
   constructor() {}
 
+  static withExample(repo: ComponentRepo): Board {
+    const board = new Board();
+    board.placeComponent(repo.get("input"), v2(100, 100));
+    board.placeComponent(repo.get("input"), v2(100, 200));
+    board.placeComponent(repo.get("and"), v2(300, 150));
+    board.placeComponent(repo.get("output"), v2(500, 150));
+    board.addWire(
+      { tag: "OutputPin", comp: board.components[0], i: 0 },
+      { tag: "InputPin", comp: board.components[2], i: 0 },
+    );
+    board.addWire(
+      { tag: "OutputPin", comp: board.components[1], i: 0 },
+      { tag: "InputPin", comp: board.components[2], i: 1 },
+    );
+    board.addWire(
+      { tag: "OutputPin", comp: board.components[2], i: 0 },
+      { tag: "InputPin", comp: board.components[3], i: 0 },
+    );
+    return board;
+  }
+
   canPlaceComponent(kind: ComponentKind, pos: V2): boolean {
     return !this.components.some((comp) =>
       rectsCollide(comp.pos, comp.kind.size, pos, kind.size),
@@ -194,6 +215,22 @@ export class Board {
     this.wires = this.wires.filter((wire) => !wire.isSelected(selection));
   }
 
+  toComponentKind(name: string): ComponentKind {
+    const inputCount = this.components.filter(
+      (comp) => comp.kind.label === "input",
+    ).length;
+    const outputCount = this.components.filter(
+      (comp) => comp.kind.label === "output",
+    ).length;
+    const pinMax = Math.max(inputCount, outputCount);
+    return new ComponentKind(
+      v2(60 + name.length * 5, 40 + 10 * pinMax),
+      name,
+      new Array<null>(inputCount).fill(null),
+      new Array<null>(outputCount).fill(null),
+    );
+  }
+
   toIr(): ir.Component {
     console.log("Lowering to IR");
 
@@ -335,6 +372,10 @@ export class ComponentRepo {
     }
 
     return repo;
+  }
+
+  available(): string[] {
+    return [...this.defs.keys()];
   }
 
   add(ident: string, kind: ComponentKind) {

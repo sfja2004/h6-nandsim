@@ -9,9 +9,28 @@ type Props = {
 
 function Canvas({ editor, canvasRef }: Props): ReactElement {
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (canvasRef.current) {
+      editor.render(canvasRef.current);
+    }
 
-    editor.render(canvasRef.current);
+    const unsubscribe = editor.events.subscribe(["RenderRequest"], (ev) => {
+      if (canvasRef.current) {
+        editor.render(canvasRef.current);
+      }
+    });
+
+    function onResize() {
+      if (canvasRef.current) {
+        editor.render(canvasRef.current);
+      }
+    }
+
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      unsubscribe();
+    };
   });
 
   return (
@@ -24,30 +43,24 @@ function Canvas({ editor, canvasRef }: Props): ReactElement {
           onMouseDown={(ev) => {
             const pos = v2(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);
             editor.events.send({ tag: "MouseDown", pos });
-            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onMouseUp={(ev) => {
             const pos = v2(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);
             editor.events.send({ tag: "MouseUp", pos });
-            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onMouseMove={(ev) => {
             const deltaPos = v2(ev.movementX, ev.movementY);
             const pos = v2(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);
             editor.events.send({ tag: "MouseMove", pos, deltaPos });
-            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
-          onMouseLeave={(ev) => {
+          onMouseLeave={(_ev) => {
             editor.events.send({ tag: "MouseLeave" });
-            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onKeyDown={(ev) => {
             editor.events.send({ tag: "KeyDown", key: ev.key });
-            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onKeyUp={(ev) => {
             editor.events.send({ tag: "KeyUp", key: ev.key });
-            editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
         />
       </div>

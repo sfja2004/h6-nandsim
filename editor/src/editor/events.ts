@@ -16,8 +16,13 @@ export type Event =
     }
   | { tag: "KeyDown" | "KeyUp"; key: string }
   | { tag: "SelectTool" | "ShowSelectedTool"; tool: string }
+  | { tag: "CreateTab" }
+  | { tag: "SelectTab" | "ShowSelectedTab"; idx: number }
   | { tag: "MouseDownOffset"; pos: V2; absPos: V2 }
-  | { tag: "MouseMoveOffset"; pos: V2; deltaPos: V2 };
+  | { tag: "MouseMoveOffset"; pos: V2; deltaPos: V2 }
+  | { tag: "RenderRequest" }
+  | { tag: "SaveComponent" | "CloseComponent" }
+  | { tag: "RenameComponent"; newName: string };
 
 export type EventOf<Tag extends Event["tag"]> = Event & { tag: Tag };
 
