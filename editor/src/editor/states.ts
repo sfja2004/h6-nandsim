@@ -7,7 +7,6 @@ import { v2, type V2 } from "./V2";
 export interface State {
   leave(): void;
   enter(): void;
-  selectedTool?(): Tool | null;
 }
 
 export class Normal implements State {
@@ -17,14 +16,14 @@ export class Normal implements State {
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
-      ["MouseDown", "MouseMove", "MouseDragBegin", "KeyDown"],
+      ["MouseDownOffset", "MouseMoveOffset", "MouseDragBegin", "KeyDown"],
       (ev) => {
         switch (ev.tag) {
-          case "MouseDown":
-            this._onMouseDown(ev.pos);
+          case "MouseDownOffset":
+            this.onMouseDown(ev.pos);
             break;
-          case "MouseMove":
-            this.cx.board.updateMouseHover(ev.pos.sub(this.cx.offset));
+          case "MouseMoveOffset":
+            this.cx.board.updateMouseHover(ev.pos);
             break;
           case "MouseDragBegin": {
             this.cx.selectionBox = new SelectionBox(ev.pos, ev.deltaPos);
@@ -50,48 +49,41 @@ export class Normal implements State {
     this.unsubscribe();
   }
 
-  private _onMouseDown(pos: V2): void {
-    if (
-      this.cx.board.handleMouseClick(pos.sub(this.cx.offset), {
-        onInputPinClicked: (comp, i) => {
-          this.cx.connectingWire = new ConnectingWire(
-            { tag: "InputPin", comp, i },
-            pos.sub(this.cx.offset),
-          );
-          this.cx.transitionTo(new Wiring(this.cx));
-        },
-        onOutputPinClicked: (comp, i) => {
-          this.cx.connectingWire = new ConnectingWire(
-            { tag: "OutputPin", comp, i },
-            pos.sub(this.cx.offset),
-          );
-          this.cx.transitionTo(new Wiring(this.cx));
-        },
-        onComponentClicked: (comp) => {
+  private onMouseDown(pos: V2): void {
+    this.cx.board.handleMouseClick(pos, {
+      onInputPinClicked: (comp, i) => {
+        this.cx.connectingWire = new ConnectingWire(
+          { tag: "InputPin", comp, i },
+          pos,
+        );
+        this.cx.transitionTo(new Wiring(this.cx));
+      },
+      onOutputPinClicked: (comp, i) => {
+        this.cx.connectingWire = new ConnectingWire(
+          { tag: "OutputPin", comp, i },
+          pos,
+        );
+        this.cx.transitionTo(new Wiring(this.cx));
+      },
+      onComponentClicked: (comp) => {
+        this.cx.selection = new Selection();
+        this.cx.selection.addComponent(comp);
+        this.cx.transitionTo(new Selecting(this.cx));
+      },
+      onJointClicked: (joint) => {
+        if (this.cx.keysPressed.has("Control")) {
           this.cx.selection = new Selection();
-          this.cx.selection.addComponent(comp);
+          this.cx.selection.addJoint(joint);
           this.cx.transitionTo(new Selecting(this.cx));
-        },
-        onJointClicked: (joint) => {
-          if (this.cx.keysPressed.has("Control")) {
-            this.cx.selection = new Selection();
-            this.cx.selection.addJoint(joint);
-            this.cx.transitionTo(new Selecting(this.cx));
-          } else {
-            this.cx.connectingWire = new ConnectingWire(
-              { tag: "Joint", joint },
-              pos.sub(this.cx.offset),
-            );
-            this.cx.transitionTo(new Wiring(this.cx));
-          }
-        },
-      }) !== "handled"
-    ) {
-    }
-  }
-
-  selectedTool(): Tool | null {
-    return "select";
+        } else {
+          this.cx.connectingWire = new ConnectingWire(
+            { tag: "Joint", joint },
+            pos,
+          );
+          this.cx.transitionTo(new Wiring(this.cx));
+        }
+      },
+    });
   }
 }
 
@@ -107,7 +99,7 @@ export class Panning implements State {
         switch (ev.tag) {
           case "MouseDragBegin":
           case "MouseDrag":
-            this.cx.moveOffset(ev.deltaPos);
+            this.cx.viewpos.move(ev.deltaPos);
             break;
           case "KeyDown": {
             if (ev.key === "Escape") {
@@ -133,10 +125,6 @@ export class Panning implements State {
   leave(): void {
     this.unsubscribe();
   }
-
-  selectedTool(): Tool | null {
-    return "pan";
-  }
 }
 
 export class Placing implements State {
@@ -153,11 +141,11 @@ export class Placing implements State {
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
-      ["MouseDown", "MouseMove", "KeyDown"],
+      ["MouseDownOffset", "MouseMove", "KeyDown"],
       (ev) => {
         switch (ev.tag) {
-          case "MouseDown": {
-            const boardPos = this.cx.canvasPosToBoard(ev.pos);
+          case "MouseDownOffset": {
+            const boardPos = ev.pos;
             if (this.cx.board.canPlaceComponent(this.compDef, boardPos)) {
               this.cx.board.placeComponent(this.compDef, boardPos);
               this.cx.transitionTo(new Normal(this.cx));
@@ -185,10 +173,6 @@ export class Placing implements State {
     this.cx.removeComponentPlacer();
     this.unsubscribe();
   }
-
-  selectedTool(): Tool | null {
-    return this.tool;
-  }
 }
 
 export class Selecting implements State {
@@ -200,17 +184,17 @@ export class Selecting implements State {
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
-      ["MouseDown", "MouseUp", "MouseMove", "KeyDown"],
+      ["MouseDownOffset", "MouseUp", "MouseMoveOffset", "KeyDown"],
       (ev) => {
         switch (ev.tag) {
-          case "MouseDown":
-            this.onMouseDown(ev.pos);
+          case "MouseDownOffset":
+            this.onMouseDown(ev.pos, ev.absPos);
             break;
           case "MouseUp":
             this.isMouseDown = false;
             break;
-          case "MouseMove": {
-            this.cx.board.updateMouseHover(ev.pos.sub(this.cx.offset));
+          case "MouseMoveOffset": {
+            this.cx.board.updateMouseHover(ev.pos);
             if (this.isMouseDown) {
               this.cx.transitionTo(new Moving(this.cx));
             }
@@ -236,9 +220,9 @@ export class Selecting implements State {
     this.unsubscribe();
   }
 
-  private onMouseDown(pos: V2): void {
+  private onMouseDown(pos: V2, absPos: V2): void {
     if (
-      this.cx.board.handleMouseClick(pos.sub(this.cx.offset), {
+      this.cx.board.handleMouseClick(pos, {
         onComponentClicked: (comp) => {
           if (this.cx.keysPressed.has("Control")) {
             this.cx.selection?.toggleComponent(comp);
@@ -258,11 +242,11 @@ export class Selecting implements State {
       }) !== "handled"
     ) {
       if (this.cx.keysPressed.has("Control")) {
-        this.cx.selectionBox = new SelectionBox(pos);
+        this.cx.selectionBox = new SelectionBox(absPos);
         this.cx.transitionTo(new SelectingBox(this.cx));
       } else {
         this.cx.selection = null;
-        this.cx.selectionBox = new SelectionBox(pos);
+        this.cx.selectionBox = new SelectionBox(absPos);
         this.cx.transitionTo(new SelectingBox(this.cx));
       }
     }
@@ -326,13 +310,10 @@ export class SelectingBox implements State {
     if (!this.cx.selectionBox) {
       throw new Error("expected selectionBox to active");
     }
-    const { pos, size } = this.cx.selectionBox.normalized();
+    const { pos, size } = this.cx.selectionBox.boardRect(this.cx.viewpos);
 
-    const components = this.cx.board.componentsInRect(
-      pos.sub(this.cx.offset),
-      size,
-    );
-    const joints = this.cx.board.jointsInRect(pos.sub(this.cx.offset), size);
+    const components = this.cx.board.componentsInRect(pos, size);
+    const joints = this.cx.board.jointsInRect(pos, size);
 
     if (components.length > 0 || joints.length > 0) {
       this.cx.selection ??= new Selection();
@@ -366,18 +347,18 @@ export class Wiring implements State {
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
-      ["MouseDown", "MouseMove", "KeyDown"],
+      ["MouseDownOffset", "MouseMoveOffset", "KeyDown"],
       (ev) => {
         switch (ev.tag) {
-          case "MouseDown":
+          case "MouseDownOffset":
             this.onMouseDown(ev.pos);
             break;
-          case "MouseMove": {
+          case "MouseMoveOffset": {
             if (!this.cx.connectingWire) {
               throw new Error("expected connectingWire to be active");
             }
-            this.cx.connectingWire.move(ev.pos.sub(this.cx.offset));
-            this.cx.board.updateMouseHover(ev.pos.sub(this.cx.offset));
+            this.cx.connectingWire.move(ev.pos);
+            this.cx.board.updateMouseHover(ev.pos);
             break;
           }
           case "KeyDown": {
@@ -399,7 +380,7 @@ export class Wiring implements State {
 
   private onMouseDown(pos: V2): void {
     if (
-      this.cx.board.handleMouseClick(pos.sub(this.cx.offset), {
+      this.cx.board.handleMouseClick(pos, {
         onInputPinClicked: (comp, i) => {
           this.cx.connectingWire!.connectToInput(this.cx.board, comp, i);
           this.cx.connectingWire = null;
@@ -420,12 +401,9 @@ export class Wiring implements State {
       const kind: ConnectingWireKind = {
         tag: "Intermediary",
         prev: this.cx.connectingWire!,
-        pos: pos.sub(this.cx.offset),
+        pos,
       };
-      this.cx.connectingWire = new ConnectingWire(
-        kind,
-        pos.sub(this.cx.offset),
-      );
+      this.cx.connectingWire = new ConnectingWire(kind, pos);
     }
   }
 }

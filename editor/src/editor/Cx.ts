@@ -12,11 +12,12 @@ import * as ir from "./ir";
 import { Sim } from "./sim";
 import { EventBus } from "./events";
 import { Mouse } from "./Mouse";
+import { ViewPos } from "./ViewPos";
 
 export type Tool = string;
 
 export class Cx {
-  public offset = v2(0, 0);
+  public viewpos: ViewPos;
   private renderNeeded = false;
 
   private state = new states.Normal(this) as states.State;
@@ -34,6 +35,7 @@ export class Cx {
   public mouse: Mouse;
 
   constructor(public events: EventBus) {
+    this.viewpos = new ViewPos(events);
     this.mouse = new Mouse(this.events);
 
     this.state.enter();
@@ -57,7 +59,7 @@ export class Cx {
   }
 
   render(canvas: HTMLCanvasElement) {
-    const r = new Renderer(canvas, this.offset);
+    const r = new Renderer(canvas, this.viewpos.offset);
 
     r.clear();
     r.drawGrid();
@@ -95,13 +97,8 @@ export class Cx {
   transitionTo(newState: states.State) {
     this.state.leave();
     this.state = newState;
-    console.log(`Entering state ${newState.constructor.name}`);
+    // console.log(`Entering state ${newState.constructor.name}`);
     this.state.enter();
-  }
-
-  moveOffset(deltaPos: V2) {
-    this.offset.x += deltaPos.x;
-    this.offset.y += deltaPos.y;
   }
 
   addComponentPlacer(pos: V2, size: V2) {
@@ -116,12 +113,6 @@ export class Cx {
     if (this.componentPlacer) {
       this.componentPlacer.pos = pos;
     }
-  }
-
-  canvasPosToBoard(pos: V2): V2 {
-    const absX = pos.x - this.offset.x;
-    const absY = pos.y - this.offset.y;
-    return v2(absX, absY);
   }
 
   runSimulation() {
@@ -150,14 +141,14 @@ export class SelectionBox {
     this.size = this.size.add(deltaPos);
   }
 
-  normalized(): { pos: V2; size: V2 } {
+  boardRect(viewpos: ViewPos): { pos: V2; size: V2 } {
     const normalizedAxis = (p: number, s: number): [number, number] =>
       s >= 0 ? [p, s] : [p + s, -s];
 
     const [x, w] = normalizedAxis(this.pos.x, this.size.x);
     const [y, h] = normalizedAxis(this.pos.y, this.size.y);
 
-    return { pos: v2(x, y), size: v2(w, h) };
+    return { pos: v2(x, y).sub(viewpos.offset), size: v2(w, h) };
   }
 }
 

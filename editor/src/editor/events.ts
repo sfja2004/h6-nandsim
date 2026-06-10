@@ -15,7 +15,9 @@ export type Event =
       deltaPos: V2;
     }
   | { tag: "KeyDown" | "KeyUp"; key: string }
-  | { tag: "SelectTool" | "ShowSelectedTool"; tool: string };
+  | { tag: "SelectTool" | "ShowSelectedTool"; tool: string }
+  | { tag: "MouseDownOffset"; pos: V2; absPos: V2 }
+  | { tag: "MouseMoveOffset"; pos: V2; deltaPos: V2 };
 
 export type EventOf<Tag extends Event["tag"]> = Event & { tag: Tag };
 
