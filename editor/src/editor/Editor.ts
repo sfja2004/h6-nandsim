@@ -1,6 +1,5 @@
 import { Cx, type Tool } from "./Cx";
 import { EventBus } from "./events";
-import { V2 } from "./V2";
 
 export class Editor {
   public events = new EventBus();

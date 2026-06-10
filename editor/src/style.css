@@ -1,37 +1,93 @@
-
 .Editor {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  height: 100%;
 
-    .Toolbar {
-
+  .Toolbar {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    max-width: 300px;
+    height: 100%;
+    background-color: #2b2a33;
 
-        button {
-            padding-left: 5px;
-            padding-right: 5px;
-            padding-top: 5px;
-            padding-bottom: 5px;
-
-            font-size: 1rem;
-            text-transform: capitalize;
-
-            width: 200px;
-            text-align: left;
-            border: 2px solid gray;
-            border-radius: 5px;
-        }
-        button.active {
-            border: 2px solid #ff8800;
-        }
+    h2 {
+      margin: 0;
     }
 
-    .Canvas {
-        canvas {
-            image-rendering: pixelated;
-        }
+    button {
+      padding-left: 20px;
+      padding-right: 20px;
+      padding-top: 5px;
+      padding-bottom: 5px;
+
+      font-size: 1rem;
+      text-transform: capitalize;
+      font-weight: bold;
+
+      min-width: 200px;
+      width: 100%;
+      text-align: left;
+      border: none;
+      border-bottom: 2px solid #2b2a33;
     }
+    button.active {
+      background-color: #373541;
+      border-bottom: 2px solid #ff8800;
+    }
+
+    button.add {
+      text-align: center;
+    }
+  }
+
+  .Tabbar {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+
+    button {
+      padding-left: 5px;
+      padding-right: 5px;
+      padding-top: 5px;
+      padding-bottom: 5px;
+
+      font-size: 1rem;
+      text-transform: capitalize;
+
+      max-width: 200px;
+      text-align: left;
+      border-radius: 10px 10px 0 0;
+
+      border: none;
+      border-bottom: 2px solid #2b2a33;
+    }
+    button.active {
+      border-bottom: 2px solid #ff8800;
+    }
+  }
+
+  .Canvas {
+    width: 100%;
+    height: 100%;
+
+    canvas {
+      width: 100%;
+      height: 100%;
+
+      image-rendering: pixelated;
+    }
+  }
+
+  > div,
+  > main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  main {
+    height: 100%;
+    width: 100%;
+  }
 }

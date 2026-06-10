@@ -15,18 +15,24 @@ function Toolbar({ editor, canvasRef }: Props): ReactElement {
   return (
     <>
       <div className="Toolbar">
-        {editor.tools().map((tool, key) => (
-          <button
-            key={`${key}`}
-            className={selectedTool === tool ? "active" : ""}
-            onClick={() => {
-              editor.events.send({ tag: "SelectTool", tool });
-              canvasRef.current?.focus();
-            }}
-          >
-            {tool}
-          </button>
-        ))}
+        <h2>Toolbar</h2>
+        <div>
+          {editor.tools().map((tool, key) => (
+            <button
+              key={`${key}`}
+              className={selectedTool === tool ? "active" : ""}
+              onClick={() => {
+                editor.events.send({ tag: "SelectTool", tool });
+                canvasRef.current?.focus();
+              }}
+            >
+              {tool}
+            </button>
+          ))}
+        </div>
+        <div>
+          <button className="add">+</button>
+        </div>
       </div>
     </>
   );

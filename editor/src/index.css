@@ -2,14 +2,21 @@
   color-scheme: light dark;
 }
 
+* {
+  font-family: sans;
+}
+
 #root {
   margin: 0 auto;
-  min-height: 100svh;
+  height: 100svh;
   text-align: center;
+  display: flex;
+  flex-direction: column;
 }
 
 body {
   margin: 0;
+  height: 100vh;
 }
 
 h1 {
