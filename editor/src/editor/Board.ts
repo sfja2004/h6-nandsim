@@ -1,4 +1,4 @@
-import type { Selection } from "./Cx";
+import type { Selection } from "./Selection";
 import type { Renderer } from "./Renderer";
 import {
   lineSegmentPointDistance,

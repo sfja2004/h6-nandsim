@@ -1,6 +1,8 @@
 import { Component, Joint, type ComponentKind } from "./Board";
-import { ConnectingWire, Selection, type ConnectingWireKind } from "./Cx";
-import { SelectionBox, type Cx, type Tool } from "./Cx";
+import { Selection } from "./Selection";
+import { ConnectingWire, type ConnectingWireKind } from "./ConnectingWire";
+import { SelectionBox } from "./SelectionBox";
+import type { Editor } from "./Editor";
 import type { EventUnsub } from "./events";
 import { v2, type V2 } from "./V2";
 
@@ -12,7 +14,7 @@ export interface State {
 export class Normal implements State {
   private unsubscribe!: EventUnsub;
 
-  constructor(private cx: Cx) {}
+  constructor(private cx: Editor) {}
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
@@ -90,7 +92,7 @@ export class Normal implements State {
 export class Panning implements State {
   private unsubscribe!: EventUnsub;
 
-  constructor(private cx: Cx) {}
+  constructor(private cx: Editor) {}
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
@@ -133,8 +135,8 @@ export class Placing implements State {
   private compDef: ComponentKind;
 
   constructor(
-    private cx: Cx,
-    private tool: Tool,
+    private cx: Editor,
+    private tool: string,
   ) {
     this.compDef = this.cx.componentRepo.get(this.tool);
   }
@@ -180,7 +182,7 @@ export class Selecting implements State {
 
   private isMouseDown = false;
 
-  constructor(private cx: Cx) {}
+  constructor(private cx: Editor) {}
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
@@ -258,7 +260,7 @@ export class Selecting implements State {
 export class Moving implements State {
   private unsubscribe!: EventUnsub;
 
-  constructor(private cx: Cx) {}
+  constructor(private cx: Editor) {}
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
@@ -284,7 +286,7 @@ export class Moving implements State {
 export class SelectingBox implements State {
   private unsubscribe!: EventUnsub;
 
-  constructor(private cx: Cx) {}
+  constructor(private cx: Editor) {}
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
@@ -334,16 +336,12 @@ export class SelectingBox implements State {
       this.cx.transitionTo(new Normal(this.cx));
     }
   }
-
-  selectedTool(): Tool | null {
-    return "select";
-  }
 }
 
 export class Wiring implements State {
   private unsubscribe!: EventUnsub;
 
-  constructor(private cx: Cx) {}
+  constructor(private cx: Editor) {}
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
