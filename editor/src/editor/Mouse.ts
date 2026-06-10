@@ -24,8 +24,6 @@ class Normal implements State {
   private unsubscribe: EventUnsub;
 
   constructor(private cx: Mouse) {
-    console.log("Mouse::Normal");
-
     this.unsubscribe = cx.eventBus.subscribe(
       ["MouseDown", "MouseUp", "MouseMove", "MouseLeave"],
       (ev) => {
@@ -61,8 +59,6 @@ class FirstPress implements State {
     private cx: Mouse,
     private pos: V2,
   ) {
-    console.log("Mouse::FirstPress");
-
     this.unsubscribe = cx.eventBus.subscribe(
       ["MouseDown", "MouseUp", "MouseMove", "MouseLeave"],
       (ev) => {
@@ -112,8 +108,6 @@ class FirstRelease implements State {
     private cx: Mouse,
     private pos: V2,
   ) {
-    console.log("Mouse::FirstRelease");
-
     this.unsubscribe = cx.eventBus.subscribe(
       ["MouseDown", "MouseUp", "MouseMove", "MouseLeave"],
       (ev) => {
@@ -121,14 +115,13 @@ class FirstRelease implements State {
           case "MouseDown":
             this.cx.transitionTo(new SecondPress(this.cx, this.pos));
             break;
-          case "MouseUp":
-            break;
           case "MouseMove":
             break;
           case "MouseLeave":
+            this.cx.transitionTo(new Normal(this.cx));
             break;
           default:
-            throw new Error("invalid state");
+            throw new Error(`unexpected event ${ev.tag}`);
         }
       },
     );
@@ -153,8 +146,6 @@ class SecondPress implements State {
     private cx: Mouse,
     private pos: V2,
   ) {
-    console.log("Mouse::SecondPress");
-
     this.unsubscribe = cx.eventBus.subscribe(
       ["MouseDown", "MouseUp", "MouseMove", "MouseLeave"],
       (ev) => {
@@ -179,7 +170,7 @@ class SecondPress implements State {
             this.cx.transitionTo(new Normal(this.cx));
             break;
           default:
-            throw new Error("invalid state");
+            throw new Error(`unexpected event ${ev.tag}`);
         }
       },
     );
@@ -194,8 +185,6 @@ class Dragging implements State {
   private unsubscribe: EventUnsub;
 
   constructor(private cx: Mouse) {
-    console.log("Mouse::Dragging");
-
     this.unsubscribe = cx.eventBus.subscribe(
       ["MouseDown", "MouseUp", "MouseMove", "MouseLeave"],
       (ev) => {
@@ -217,7 +206,7 @@ class Dragging implements State {
             this.cx.transitionTo(new Normal(this.cx));
             break;
           default:
-            throw new Error("invalid state");
+            throw new Error(`unexpected event ${ev.tag}`);
         }
       },
     );

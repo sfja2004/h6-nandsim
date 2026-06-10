@@ -3,28 +3,24 @@ import type { Editor } from "./editor/Editor";
 
 type Props = { editor: Editor; canvasRef: RefObject<HTMLCanvasElement | null> };
 
-function useUpdate(): [number, () => void] {
-  const [value, setValue] = useState(0);
-  return [value, () => setValue(value + 1)] as const;
-}
-
 function Toolbar({ editor, canvasRef }: Props): ReactElement {
-  const [uid, update] = useUpdate();
+  const [selectedTool, setSelectedTool] = useState("select");
 
-  useEffect(() => {
-    const handle = editor.addUpdateAction(() => update());
-    return () => editor.removeUpdateAction(handle);
-  });
+  useEffect(() =>
+    editor.events.subscribe(["ShowSelectedTool"], (ev) => {
+      setSelectedTool(ev.tool);
+    }),
+  );
 
   return (
     <>
       <div className="Toolbar">
         {editor.tools().map((tool, key) => (
           <button
-            key={`${uid}${key}`}
-            className={editor.selectedTool() === tool ? "active" : ""}
+            key={`${key}`}
+            className={selectedTool === tool ? "active" : ""}
             onClick={() => {
-              editor.selectTool(tool);
+              editor.events.send({ tag: "SelectTool", tool });
               canvasRef.current?.focus();
             }}
           >

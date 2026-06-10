@@ -18,8 +18,8 @@ export type Tool = string;
 export class Cx {
   public offset = v2(0, 0);
   private renderNeeded = false;
+
   private state = new states.Normal(this) as states.State;
-  private updateActions: (() => void)[] = [];
 
   public selectionBox: SelectionBox | null = null;
   private componentPlacer: ComponentPlacer | null = null;
@@ -31,8 +31,30 @@ export class Cx {
 
   public keysPressed = new Set<string>();
 
-  public eventBus = new EventBus();
-  public mouse = new Mouse(this.eventBus);
+  public mouse: Mouse;
+
+  constructor(public events: EventBus) {
+    this.mouse = new Mouse(this.events);
+
+    this.state.enter();
+
+    this.events.subscribe(
+      ["MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "SelectTool"],
+      (ev) => {
+        switch (ev.tag) {
+          case "KeyDown":
+            this.keysPressed.add(ev.key);
+            break;
+          case "KeyUp":
+            this.keysPressed.delete(ev.key);
+            break;
+          case "SelectTool":
+            this.onSelectTool(ev.tool);
+        }
+        this.renderNeeded = true;
+      },
+    );
+  }
 
   render(canvas: HTMLCanvasElement) {
     const r = new Renderer(canvas, this.offset);
@@ -52,29 +74,7 @@ export class Cx {
     }
   }
 
-  mouseDown(pos: V2) {
-    this.state.onMouseDown?.(pos);
-    this.renderNeeded = true;
-  }
-  mouseUp(pos: V2) {
-    this.state.onMouseUp?.(pos);
-    this.renderNeeded = true;
-  }
-  mouseMove(deltaPos: V2, pos: V2) {
-    this.state.onMouseMove?.(deltaPos, pos);
-    this.renderNeeded = true;
-  }
-  keyDown(key: string) {
-    this.keysPressed.add(key);
-    this.state.onKeyDown?.(key);
-    this.renderNeeded = true;
-  }
-  keyUp(key: string) {
-    this.keysPressed.delete(key);
-    this.state.onKeyUp?.(key);
-    this.renderNeeded = true;
-  }
-  selectTool(tool: Tool) {
+  private onSelectTool(tool: Tool) {
     switch (tool) {
       case "pan":
         this.transitionTo(new states.Panning(this));
@@ -89,34 +89,14 @@ export class Cx {
       default:
         this.transitionTo(new states.Normal(this));
     }
-  }
-  selectedTool(): Tool {
-    return this.state.selectedTool?.() || "select";
-  }
-
-  addUpdateAction(action: () => void): object {
-    this.updateActions.push(action);
-    return action;
-  }
-
-  removeUpdateAction(actionId: object) {
-    this.updateActions = this.updateActions.filter(
-      (action) => action !== actionId,
-    );
+    this.events.send({ tag: "ShowSelectedTool", tool });
   }
 
   transitionTo(newState: states.State) {
-    this.state.leaveState?.();
+    this.state.leave();
     this.state = newState;
-    // console.log(`Entering state ${newState.constructor.name}`);
-    this.state.enterState?.();
-    this.notifyListeners();
-  }
-
-  notifyListeners() {
-    for (const action of this.updateActions) {
-      action();
-    }
+    console.log(`Entering state ${newState.constructor.name}`);
+    this.state.enter();
   }
 
   moveOffset(deltaPos: V2) {

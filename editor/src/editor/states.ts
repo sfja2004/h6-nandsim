@@ -1,30 +1,56 @@
 import { Component, Joint, type ComponentKind } from "./Board";
 import { ConnectingWire, Selection, type ConnectingWireKind } from "./Cx";
 import { SelectionBox, type Cx, type Tool } from "./Cx";
+import type { EventUnsub } from "./events";
 import { v2, type V2 } from "./V2";
 
 export interface State {
-  enterState?(): void;
-  leaveState?(): void;
-  onMouseDown?(pos: V2): void;
-  onMouseUp?(pos: V2): void;
-  onMouseMove?(deltaPos: V2, pos: V2): void;
-  onKeyDown?(key: string): void;
-  onKeyUp?(key: string): void;
+  leave(): void;
+  enter(): void;
   selectedTool?(): Tool | null;
 }
 
 export class Normal implements State {
-  private dragStart = v2(0, 0);
-  private isMouseDown = false;
+  private unsubscribe!: EventUnsub;
 
   constructor(private cx: Cx) {}
 
-  enterState(): void {
+  enter(): void {
+    this.unsubscribe = this.cx.events.subscribe(
+      ["MouseDown", "MouseMove", "MouseDragBegin", "KeyDown"],
+      (ev) => {
+        switch (ev.tag) {
+          case "MouseDown":
+            this._onMouseDown(ev.pos);
+            break;
+          case "MouseMove":
+            this.cx.board.updateMouseHover(ev.pos.sub(this.cx.offset));
+            break;
+          case "MouseDragBegin": {
+            this.cx.selectionBox = new SelectionBox(ev.pos, ev.deltaPos);
+            this.cx.transitionTo(new SelectingBox(this.cx));
+            break;
+          }
+          case "KeyDown": {
+            if (ev.key === "Shift") {
+              this.cx.transitionTo(new Panning(this.cx));
+              return;
+            }
+            break;
+          }
+        }
+      },
+    );
+
+    this.cx.events.send({ tag: "ShowSelectedTool", tool: "select" });
     this.cx.runSimulation();
   }
 
-  onMouseDown(pos: V2): void {
+  leave(): void {
+    this.unsubscribe();
+  }
+
+  private _onMouseDown(pos: V2): void {
     if (
       this.cx.board.handleMouseClick(pos.sub(this.cx.offset), {
         onInputPinClicked: (comp, i) => {
@@ -61,26 +87,6 @@ export class Normal implements State {
         },
       }) !== "handled"
     ) {
-      this.isMouseDown = true;
-      this.dragStart = pos;
-    }
-  }
-
-  onMouseMove(_deltaPos: V2, pos: V2): void {
-    if (this.isMouseDown && this.dragStart.sub(pos).len() > 5) {
-      this.cx.selectionBox = new SelectionBox(
-        this.dragStart,
-        pos.sub(this.dragStart),
-      );
-      this.cx.transitionTo(new SelectingBox(this.cx));
-    }
-    this.cx.board.updateMouseHover(pos.sub(this.cx.offset));
-  }
-
-  onKeyDown(key: string): void {
-    if (key === "Shift") {
-      this.cx.transitionTo(new Panning(this.cx));
-      return;
     }
   }
 
@@ -90,36 +96,42 @@ export class Normal implements State {
 }
 
 export class Panning implements State {
-  private dragging = false;
+  private unsubscribe!: EventUnsub;
 
   constructor(private cx: Cx) {}
 
-  onMouseDown(_pos: V2): void {
-    this.dragging = true;
+  enter(): void {
+    this.unsubscribe = this.cx.events.subscribe(
+      ["MouseDragBegin", "MouseDrag", "KeyDown", "KeyUp"],
+      (ev) => {
+        switch (ev.tag) {
+          case "MouseDragBegin":
+          case "MouseDrag":
+            this.cx.moveOffset(ev.deltaPos);
+            break;
+          case "KeyDown": {
+            if (ev.key === "Escape") {
+              this.cx.transitionTo(new Normal(this.cx));
+              break;
+            }
+            break;
+          }
+          case "KeyUp": {
+            if (ev.key === "Shift") {
+              this.cx.transitionTo(new Normal(this.cx));
+              break;
+            }
+            break;
+          }
+        }
+      },
+    );
+
+    this.cx.events.send({ tag: "ShowSelectedTool", tool: "pan" });
   }
 
-  onMouseUp(_pos: V2): void {
-    this.dragging = false;
-  }
-
-  onMouseMove(deltaPos: V2): void {
-    if (this.dragging) {
-      this.cx.moveOffset(deltaPos);
-    }
-  }
-
-  onKeyDown(key: string): void {
-    if (key === "Escape") {
-      this.cx.transitionTo(new Normal(this.cx));
-      return;
-    }
-  }
-
-  onKeyUp(key: string): void {
-    if (key === "Shift") {
-      this.cx.transitionTo(new Normal(this.cx));
-      return;
-    }
+  leave(): void {
+    this.unsubscribe();
   }
 
   selectedTool(): Tool | null {
@@ -128,6 +140,8 @@ export class Panning implements State {
 }
 
 export class Placing implements State {
+  private unsubscribe!: EventUnsub;
+
   private compDef: ComponentKind;
 
   constructor(
@@ -137,31 +151,39 @@ export class Placing implements State {
     this.compDef = this.cx.componentRepo.get(this.tool);
   }
 
-  enterState(): void {
+  enter(): void {
+    this.unsubscribe = this.cx.events.subscribe(
+      ["MouseDown", "MouseMove", "KeyDown"],
+      (ev) => {
+        switch (ev.tag) {
+          case "MouseDown": {
+            const boardPos = this.cx.canvasPosToBoard(ev.pos);
+            if (this.cx.board.canPlaceComponent(this.compDef, boardPos)) {
+              this.cx.board.placeComponent(this.compDef, boardPos);
+              this.cx.transitionTo(new Normal(this.cx));
+            }
+            break;
+          }
+          case "MouseMove":
+            this.cx.setComponentPlacerPos(ev.pos);
+            break;
+          case "KeyDown": {
+            if (ev.key === "Escape") {
+              this.cx.transitionTo(new Normal(this.cx));
+              break;
+            }
+            break;
+          }
+        }
+      },
+    );
+
     this.cx.addComponentPlacer(v2(0, 0), this.compDef.size);
   }
 
-  leaveState(): void {
+  leave(): void {
     this.cx.removeComponentPlacer();
-  }
-
-  onMouseDown(pos: V2): void {
-    const boardPos = this.cx.canvasPosToBoard(pos);
-    if (this.cx.board.canPlaceComponent(this.compDef, boardPos)) {
-      this.cx.board.placeComponent(this.compDef, boardPos);
-      this.cx.transitionTo(new Normal(this.cx));
-    }
-  }
-
-  onMouseMove(_deltaPos: V2, pos: V2): void {
-    this.cx.setComponentPlacerPos(pos);
-  }
-
-  onKeyDown(key: string): void {
-    if (key === "Escape") {
-      this.cx.transitionTo(new Normal(this.cx));
-      return;
-    }
+    this.unsubscribe();
   }
 
   selectedTool(): Tool | null {
@@ -170,11 +192,51 @@ export class Placing implements State {
 }
 
 export class Selecting implements State {
+  private unsubscribe!: EventUnsub;
+
   private isMouseDown = false;
 
   constructor(private cx: Cx) {}
 
-  onMouseDown(pos: V2): void {
+  enter(): void {
+    this.unsubscribe = this.cx.events.subscribe(
+      ["MouseDown", "MouseUp", "MouseMove", "KeyDown"],
+      (ev) => {
+        switch (ev.tag) {
+          case "MouseDown":
+            this.onMouseDown(ev.pos);
+            break;
+          case "MouseUp":
+            this.isMouseDown = false;
+            break;
+          case "MouseMove": {
+            this.cx.board.updateMouseHover(ev.pos.sub(this.cx.offset));
+            if (this.isMouseDown) {
+              this.cx.transitionTo(new Moving(this.cx));
+            }
+            break;
+          }
+          case "KeyDown": {
+            if (ev.key === "Delete") {
+              if (!this.cx.selection) {
+                throw new Error("expected selection");
+              }
+              this.cx.board.deleteSelection(this.cx.selection);
+              this.cx.selection = null;
+              this.cx.transitionTo(new Normal(this.cx));
+            }
+            break;
+          }
+        }
+      },
+    );
+  }
+
+  leave(): void {
+    this.unsubscribe();
+  }
+
+  private onMouseDown(pos: V2): void {
     if (
       this.cx.board.handleMouseClick(pos.sub(this.cx.offset), {
         onComponentClicked: (comp) => {
@@ -207,46 +269,60 @@ export class Selecting implements State {
 
     this.isMouseDown = true;
   }
-
-  onMouseUp(_pos: V2): void {
-    this.isMouseDown = false;
-  }
-
-  onMouseMove(_deltaPos: V2, pos: V2): void {
-    this.cx.board.updateMouseHover(pos.sub(this.cx.offset));
-    if (this.isMouseDown) {
-      this.cx.transitionTo(new Moving(this.cx));
-    }
-  }
-
-  onKeyDown(key: string): void {
-    if (key === "Delete") {
-      if (!this.cx.selection) {
-        throw new Error("expected selection");
-      }
-      this.cx.board.deleteSelection(this.cx.selection);
-      this.cx.selection = null;
-      this.cx.transitionTo(new Normal(this.cx));
-    }
-  }
 }
 
 export class Moving implements State {
+  private unsubscribe!: EventUnsub;
+
   constructor(private cx: Cx) {}
 
-  onMouseUp(_pos: V2): void {
-    this.cx.transitionTo(new Selecting(this.cx));
+  enter(): void {
+    this.unsubscribe = this.cx.events.subscribe(
+      ["MouseUp", "MouseMove"],
+      (ev) => {
+        switch (ev.tag) {
+          case "MouseUp":
+            this.cx.transitionTo(new Selecting(this.cx));
+            break;
+          case "MouseMove":
+            this.cx.selection?.move(ev.deltaPos);
+            break;
+        }
+      },
+    );
   }
 
-  onMouseMove(deltaPos: V2, _pos: V2): void {
-    this.cx.selection?.move(deltaPos);
+  leave(): void {
+    this.unsubscribe();
   }
 }
 
 export class SelectingBox implements State {
+  private unsubscribe!: EventUnsub;
+
   constructor(private cx: Cx) {}
 
-  onMouseUp(_pos: V2): void {
+  enter(): void {
+    this.unsubscribe = this.cx.events.subscribe(
+      ["MouseUp", "MouseMove"],
+      (ev) => {
+        switch (ev.tag) {
+          case "MouseUp":
+            this.onMouseUp(ev.pos);
+            break;
+          case "MouseMove":
+            this.cx.selectionBox?.move(ev.deltaPos);
+            break;
+        }
+      },
+    );
+  }
+
+  leave(): void {
+    this.unsubscribe();
+  }
+
+  private onMouseUp(_pos: V2): void {
     if (!this.cx.selectionBox) {
       throw new Error("expected selectionBox to active");
     }
@@ -278,19 +354,50 @@ export class SelectingBox implements State {
     }
   }
 
-  onMouseMove(deltaPos: V2): void {
-    this.cx.selectionBox?.move(deltaPos);
-  }
-
   selectedTool(): Tool | null {
     return "select";
   }
 }
 
 export class Wiring implements State {
+  private unsubscribe!: EventUnsub;
+
   constructor(private cx: Cx) {}
 
-  onMouseDown(pos: V2): void {
+  enter(): void {
+    this.unsubscribe = this.cx.events.subscribe(
+      ["MouseDown", "MouseMove", "KeyDown"],
+      (ev) => {
+        switch (ev.tag) {
+          case "MouseDown":
+            this.onMouseDown(ev.pos);
+            break;
+          case "MouseMove": {
+            if (!this.cx.connectingWire) {
+              throw new Error("expected connectingWire to be active");
+            }
+            this.cx.connectingWire.move(ev.pos.sub(this.cx.offset));
+            this.cx.board.updateMouseHover(ev.pos.sub(this.cx.offset));
+            break;
+          }
+          case "KeyDown": {
+            if (ev.key === "Escape") {
+              this.cx.transitionTo(new Normal(this.cx));
+              this.cx.connectingWire = null;
+              return;
+            }
+            break;
+          }
+        }
+      },
+    );
+  }
+
+  leave(): void {
+    this.unsubscribe();
+  }
+
+  private onMouseDown(pos: V2): void {
     if (
       this.cx.board.handleMouseClick(pos.sub(this.cx.offset), {
         onInputPinClicked: (comp, i) => {
@@ -315,23 +422,10 @@ export class Wiring implements State {
         prev: this.cx.connectingWire!,
         pos: pos.sub(this.cx.offset),
       };
-      this.cx.connectingWire = new ConnectingWire(kind, pos);
-    }
-  }
-
-  onMouseMove(_deltaPos: V2, pos: V2): void {
-    if (!this.cx.connectingWire) {
-      throw new Error("expected connectingWire to be active");
-    }
-    this.cx.connectingWire.move(pos.sub(this.cx.offset));
-    this.cx.board.updateMouseHover(pos.sub(this.cx.offset));
-  }
-
-  onKeyDown(key: string): void {
-    if (key === "Escape") {
-      this.cx.transitionTo(new Normal(this.cx));
-      this.cx.connectingWire = null;
-      return;
+      this.cx.connectingWire = new ConnectingWire(
+        kind,
+        pos.sub(this.cx.offset),
+      );
     }
   }
 }

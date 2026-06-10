@@ -24,6 +24,10 @@ export class V2 {
   abs(): V2 {
     return new V2(Math.abs(this.x), Math.abs(this.y));
   }
+
+  toString(): string {
+    return `V2(${this.x}, ${this.y})`;
+  }
 }
 
 export const v2 = (x: number, y: number): V2 => new V2(x, y);

@@ -1,8 +1,10 @@
 import { Cx, type Tool } from "./Cx";
+import { EventBus } from "./events";
 import { V2 } from "./V2";
 
 export class Editor {
-  private cx = new Cx();
+  public events = new EventBus();
+  private cx = new Cx(this.events);
 
   render(canvas: HTMLCanvasElement) {
     this.cx.render(canvas);
@@ -12,50 +14,7 @@ export class Editor {
     this.cx.renderIfNeeded(canvas);
   }
 
-  mouseDown(pos: V2) {
-    this.cx.eventBus.send({ tag: "MouseDown", pos });
-    this.cx.mouseDown(pos);
-  }
-
-  mouseUp(pos: V2) {
-    this.cx.eventBus.send({ tag: "MouseUp", pos });
-    this.cx.mouseUp(pos);
-  }
-
-  mouseMove(deltaPos: V2, pos: V2) {
-    this.cx.eventBus.send({ tag: "MouseMove", pos, deltaPos });
-    this.cx.mouseMove(deltaPos, pos);
-  }
-
-  mouseLeave() {
-    this.cx.eventBus.send({ tag: "MouseLeave" });
-  }
-
-  keyDown(key: string) {
-    this.cx.keyDown(key);
-  }
-
-  keyUp(key: string) {
-    this.cx.keyUp(key);
-  }
-
-  selectTool(tool: Tool) {
-    this.cx.selectTool(tool);
-  }
-
-  selectedTool(): Tool | null {
-    return this.cx.selectedTool();
-  }
-
   tools(): Tool[] {
     return ["select", "pan", "input", "output", "and", "or", "not"];
-  }
-
-  addUpdateAction(action: () => void): object {
-    return this.cx.addUpdateAction(action);
-  }
-
-  removeUpdateAction(actionId: object) {
-    this.cx.removeUpdateAction(actionId);
   }
 }

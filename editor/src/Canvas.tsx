@@ -27,30 +27,30 @@ function Canvas({ editor, canvasRef, width, height }: Props): ReactElement {
           tabIndex={0}
           onMouseDown={(ev) => {
             const pos = v2(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);
-            editor.mouseDown(pos);
+            editor.events.send({ tag: "MouseDown", pos });
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onMouseUp={(ev) => {
             const pos = v2(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);
-            editor.mouseUp(pos);
+            editor.events.send({ tag: "MouseUp", pos });
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onMouseMove={(ev) => {
             const deltaPos = v2(ev.movementX, ev.movementY);
             const pos = v2(ev.nativeEvent.offsetX, ev.nativeEvent.offsetY);
-            editor.mouseMove(deltaPos, pos);
+            editor.events.send({ tag: "MouseMove", pos, deltaPos });
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onMouseLeave={(ev) => {
-            editor.mouseLeave();
+            editor.events.send({ tag: "MouseLeave" });
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onKeyDown={(ev) => {
-            editor.keyDown(ev.key);
+            editor.events.send({ tag: "KeyDown", key: ev.key });
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
           onKeyUp={(ev) => {
-            editor.keyUp(ev.key);
+            editor.events.send({ tag: "KeyUp", key: ev.key });
             editor.renderIfNeeded(ev.target as HTMLCanvasElement);
           }}
         />
