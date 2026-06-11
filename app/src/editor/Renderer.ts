@@ -9,7 +9,9 @@ export class Renderer {
     private offset: V2,
   ) {
     this.c = this.canvas.getContext("2d")!;
-    this.c.imageSmoothingEnabled = false;
+    // this.c.imageSmoothingEnabled = false;
+    this.c.imageSmoothingEnabled = true;
+    this.c.imageSmoothingQuality ="high"
   }
 
   clear() {

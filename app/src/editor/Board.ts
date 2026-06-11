@@ -332,8 +332,7 @@ export class Board {
 
     for (const [oldState, newState] of replacedStates) {
       this.stateWireMap
-        .get(newState)!
-        .push(...this.stateWireMap.get(oldState)!);
+        .set(newState, [...(this.stateWireMap.get(newState) ?? []), ...(this.stateWireMap.get(oldState) ?? [])])
       this.stateWireMap.delete(oldState);
     }
 
