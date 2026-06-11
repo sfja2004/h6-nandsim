@@ -16,4 +16,15 @@ Because logic circuits can be used for simulations, they can also enable testing
 For this purpose, we would like a software solution that enables us as chip manufacturers to design and specify logic circuits as to simulate hardware chips to run embedded software. The circuits should be specified by assembling logic gates. We would like a visual tool for assembling and organizing logic gates. The tool should be able to simulate a specified circuit. We want the simulation to be a live simulation, were we can interactively test software and interact with the circuit.
 
 
+## Case 1: Demonstrate the behavoir of a 4-bit full adder
+
+Chip development involved designing the schematic of various complex logic components. One such component could be a 4-bit full adder. The simulator needs to be able to demonstrate that the behavior of a specific schematic for complex component, in this case a 4-bit full adder, is correct and will work in practice.
+
+Given a schematic of a 4-bit full adder, the system has to provide functionality to wire together components according to the schematic. When the circuit wiring is done, the system has simulate the behavior of the component correctly and interactively. The simulator should demonstrate the the 4-bit full adder can add numbers correctly, for example that 3 + 5 = 8.
+
+## Case 2: Demonstrate the correctness of a piece of microcode for a 7-segment display encoder
+
+Often, a chip needs certain programs of microcode. Microcode are pieces of code or data that are used internally in chips. A schematic of a 7-segment display encoder can utilize a ROM component for the encoding itself. ROM (read-only memory) components, and memory components generally, function by associating address bits with data bits. A 7-segment display (in this instance) takes as input the state of each of the 7 segments.
+
+Using 2 4-bit ROM components (4-bit address and value) an encoder can be made that translates the binary bit values of the integers 0 to 15 to their corrosponding 7-segment pin combinations. The system has to provide functionality for such a component to be designed so that microcode can be tested on it.
 

@@ -1,4 +1,4 @@
-import { Board, Component, ComponentRepo } from "./Board";
+import { Component } from "./Board";
 import { SelectionBox } from "./SelectionBox";
 import { ComponentPlacer } from "./ComponentPlacer";
 import { Selection } from "./Selection";
@@ -11,8 +11,6 @@ import { ViewPos } from "./ViewPos";
 import { type ComponentKind } from "./Board";
 import type { EventUnsub } from "./events";
 import { Project } from "./Project";
-import * as ir from "./ir";
-import { Sim } from "./sim";
 
 export class Editor {
   public events = new EventBus();

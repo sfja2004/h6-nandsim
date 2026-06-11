@@ -1,4 +1,4 @@
-import { Board, Component, ComponentRepo } from "./Board";
+import { Board, ComponentRepo } from "./Board";
 import { type EventBus } from "./events";
 import * as ser from "./serialize";
 

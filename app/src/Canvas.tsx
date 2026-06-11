@@ -13,7 +13,7 @@ function Canvas({ editor, canvasRef }: Props): ReactElement {
       editor.render(canvasRef.current);
     }
 
-    const unsubscribe = editor.events.subscribe(["RenderRequest"], (ev) => {
+    const unsubscribe = editor.events.subscribe(["RenderRequest"], (_ev) => {
       if (canvasRef.current) {
         editor.render(canvasRef.current);
       }

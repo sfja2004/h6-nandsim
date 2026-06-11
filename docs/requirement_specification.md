@@ -3,11 +3,11 @@
 
 **NandSim** - A tool for specifying and simulating integrated circuits with logic gates.
 
-The customer is an integrated circuit chip (ICC) manufacturer. The tool is to be designed used for software developers and as an interaction point between hardware developers and software developers. See the [case description](./case_description.md).
+The customer is an integrated circuit chip (IC) manufacturer. The tool is to be designed used for software developers and as an interaction point between hardware developers and software developers. See the [case description](./case_description.md).
 
 The solution is a visual tool, that both software and hardware developers can use to build and simulate logic circuit models. The models consist of assembled logic gates. To organize complicated logic, the gates of the circuits can be organized into reusable component. The tool can simulate the modelled circuits in an interactive live simulation. Software developers should be able to develop software targetting the modelled circuits, and further be able to execute and test code in the simulation.
 
-The goal is a tool that enable ICC manufacturers, specifically software and hardware developers to design and develop circuit models and embedded software, as to reduce the development time for an ICC solution, by decoupling the software and hardware development processes.
+The goal is a tool that enable IC manufacturers, specifically software and hardware developers to design and develop circuit models and embedded software, as to reduce the development time for an IC solution, by decoupling the software and hardware development processes.
 
 ## Requirements
 
@@ -27,9 +27,14 @@ As a developer using this solution, I should be able to:
 
 ## Non-functional requirements
 
-TBD
+The system should conform to the non-functional requirements of:
+
+- **simulating interactively without unreasonable delay.** The system should be able to simulate any circuit with less than 100 components in less than 500 milliseconds on modern hardware.
+- **preventing loss of work.** The system should employ a strategy to save the user's progress frequently enough, so that work is never lost. Immediately following any significant change, the system should be able to restart without loss of work.
 
 ## Delimination
 
-TBD
+For simplicity, both of use and of implementation, the solution will be a digital logic simulator. This is an abstraction removed from simulating electrical current in circuits with resistors, capacetors, etc. This limits the tool in terms of it's applicability while still being suited for the case description.
+
+The simulator will not handle unstable circuits. If a circuit contains a cycling connection in such a way that the circuit vascillates indefinitely, the circuit is said to be unstable. A general solution to detect unstable circuits ahead of time is mathematically impossible due to the halting problem, and heuristics-based detection methods come with their own complexity. It's decided that the simulator simply doesn't support unstable circuits, and it's thus the user's responsibility ensure that circuits are stable.
 
