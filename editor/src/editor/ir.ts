@@ -28,12 +28,15 @@ export class Stmt {
         return [k.op];
       case "And":
       case "Or":
+      case "Nand":
+      case "Nor":
         return [k.lhs, k.rhs];
       case "Call":
         return [...k.inputs];
       case "Elem":
         return [k.src];
     }
+    k satisfies never;
   }
 
   replaceSource(oldStmt: Stmt, newStmt: Stmt) {
@@ -52,6 +55,8 @@ export class Stmt {
         break;
       case "And":
       case "Or":
+      case "Nand":
+      case "Nor":
         if (k.lhs === oldStmt) k.lhs = newStmt;
         if (k.rhs === oldStmt) k.rhs = newStmt;
         break;
@@ -61,6 +66,8 @@ export class Stmt {
       case "Elem":
         if (k.src === oldStmt) k.src = newStmt;
         break;
+      default:
+        k satisfies never;
     }
   }
 
@@ -84,7 +91,7 @@ export type StmtKind =
   | { tag: "GetState"; state: State }
   | { tag: "SetState"; state: State; src: Stmt }
   | { tag: "Not"; op: Stmt }
-  | { tag: "And" | "Or"; lhs: Stmt; rhs: Stmt }
+  | { tag: "And" | "Or" | "Nand" | "Nor"; lhs: Stmt; rhs: Stmt }
   | { tag: "Call"; comp: Component; inputs: Stmt[] }
   | { tag: "Elem"; src: Stmt; i: number };
 
@@ -161,6 +168,16 @@ class StmtsMutater {
     return this.comp.stmts[Symbol.iterator]();
   }
 
+  entries(): ArrayIterator<[number, Stmt]> {
+    return this.comp.stmts.entries();
+  }
+
+  replaceStmt(oldStmt: Stmt, newStmt: Stmt) {
+    this.comp.stmts = this.comp.stmts.map((stmt) =>
+      stmt === oldStmt ? newStmt : stmt,
+    );
+  }
+
   replaceSource(oldStmt: Stmt, newStmt: Stmt) {
     for (const stmt of this.comp.stmts) {
       stmt.replaceSource(oldStmt, newStmt);
@@ -207,8 +224,14 @@ export class ComponentOptimizer {
   private optimizeWithOptions(removeUnusedStates: boolean) {
     const score = () => this.comp.stmts.length * 100 + this.comp.states.length;
 
+    let iterations = 0;
     let scoreBefore: number;
     do {
+      if (iterations > 100) {
+        console.error("iterations > 100");
+        break;
+      }
+
       scoreBefore = score();
 
       this.eliminateRedundantState();
@@ -220,6 +243,10 @@ export class ComponentOptimizer {
       if (removeUnusedStates) {
         this.eliminateIndependentSetState();
       }
+      this.rewriteToNandOrNor();
+      this.eliminateUnusedStmts();
+
+      iterations++;
     } while (score() !== scoreBefore);
   }
 
@@ -352,6 +379,65 @@ export class ComponentOptimizer {
     }
   }
 
+  rewriteToNandOrNor() {
+    const mut = new StmtsMutater(this.comp, this.replacedStates);
+
+    const useCount = new Map<Stmt, number>();
+    for (const stmt of mut) {
+      for (const src of stmt.sources()) {
+        useCount.set(src, (useCount.get(src) ?? 0) + 1);
+      }
+    }
+
+    for (let i = 0; i < this.comp.stmts.length; ++i) {
+      const stmt = this.comp.stmts[i];
+      if (stmt.kind.tag === "Not") {
+        const src = stmt.kind.op;
+        if (
+          (src.kind.tag === "And" || src.kind.tag === "Or") &&
+          useCount.get(src) === 1
+        ) {
+          const newStmt = new Stmt({
+            tag: src.kind.tag === "And" ? "Nand" : "Nor",
+            lhs: src.kind.lhs,
+            rhs: src.kind.rhs,
+          });
+          mut.insertStmtAt(i, newStmt);
+          mut.removeStmt(stmt);
+          mut.replaceSource(stmt, newStmt);
+        }
+      }
+    }
+  }
+
+  eliminateUnusedStmts() {
+    const mut = new StmtsMutater(this.comp, this.replacedStates);
+
+    const useCount = new Map<Stmt, number>();
+    for (const stmt of mut) {
+      for (const src of stmt.sources()) {
+        useCount.set(src, (useCount.get(src) ?? 0) + 1);
+      }
+    }
+
+    const nonEffectfulStmts = new Set<StmtKind["tag"]>([
+      "And",
+      "Or",
+      "Nand",
+      "Nor",
+      "Elem",
+      "Input",
+      "GetState",
+      "Null",
+    ]);
+
+    for (const stmt of mut) {
+      if (!useCount.get(stmt) && nonEffectfulStmts.has(stmt.kind.tag)) {
+        mut.removeStmt(stmt);
+      }
+    }
+  }
+
   private indexMap(): Map<Stmt, number> {
     return new Map(this.comp.stmts.map((stmt, i) => [stmt, i]));
   }
@@ -398,7 +484,7 @@ export class ComponentPrinter {
         "\\c(color: #d44949; font-weight: bold)$&\\c",
       )
       .replaceAll(
-        /(?:Null)|(?:Input)|(?:Output)|(?:GetState)|(?:SetState)|(?:Not)|(?:And)|(?:Or)|(?:Call)|(?:Elem)/g,
+        /(?:Null)|(?:Input)|(?:Output)|(?:GetState)|(?:SetState)|(?:Not)|(?:And)|(?:Or)|(?:Nand)|(?:Nor)|(?:Call)|(?:Elem)/g,
         "\\c(color: orange)$&\\c",
       );
 
@@ -449,11 +535,15 @@ export class ComponentPrinter {
         return `${stmtId(stmt)} = Not ${stmtId(k.op)}`;
       case "And":
       case "Or":
+      case "Nand":
+      case "Nor":
         return `${stmtId(stmt)} = ${k.tag} ${stmtId(k.lhs)}, ${stmtId(k.rhs)}`;
       case "Call":
         return `${stmtId(stmt)} = Call ${k.comp.label} (${k.inputs.map((s) => stmtId(s)).join(", ")})`;
       case "Elem":
         return `${stmtId(stmt)} = Elem ${stmtId(k.src)}, ${k.i}`;
+      default:
+        k satisfies never;
     }
   }
 }

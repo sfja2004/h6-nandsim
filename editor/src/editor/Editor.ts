@@ -336,15 +336,19 @@ class Placing implements State {
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
-      ["MouseDownOffset", "MouseMove", "KeyDown"],
+      ["MouseClickOffset", "MouseMove", "KeyDown"],
       (ev) => {
         switch (ev.tag) {
-          case "MouseDownOffset": {
+          case "MouseClickOffset": {
             const boardPos = ev.pos;
             if (this.cx.board.canPlaceComponent(this.compDef, boardPos)) {
               this.cx.board.placeComponent(this.compDef, boardPos);
               this.cx.events.send({ tag: "SaveRequest" });
-              this.cx.transitionTo(new Normal(this.cx));
+              if (this.cx.keysPressed.has("Shift")) {
+                this.cx.transitionTo(new Placing(this.cx, this.tool));
+              } else {
+                this.cx.transitionTo(new Normal(this.cx));
+              }
             }
             break;
           }
@@ -362,7 +366,7 @@ class Placing implements State {
       },
     );
 
-    this.cx.addComponentPlacer(v2(0, 0), this.compDef.size);
+    this.cx.addComponentPlacer(v2(-100, 0), this.compDef.size);
   }
 
   leave(): void {

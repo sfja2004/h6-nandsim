@@ -286,7 +286,7 @@ export class Board {
     ).length;
     const pinMax = Math.max(inputCount, outputCount);
     return new ComponentKind(
-      v2(60 + name.length * 5, 40 + 10 * pinMax),
+      v2(60 + name.length * 10, 40 + 10 * pinMax),
       name,
       new Array<null>(inputCount).fill(null),
       new Array<null>(outputCount).fill(null),

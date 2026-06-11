@@ -66,6 +66,12 @@ export class Sim {
         case "Or":
           regs[i] = operation((a, b) => a || b, k.lhs, k.rhs);
           break;
+        case "Nand":
+          regs[i] = operation((a, b) => !(a && b), k.lhs, k.rhs);
+          break;
+        case "Nor":
+          regs[i] = operation((a, b) => !(a || b), k.lhs, k.rhs);
+          break;
         case "Call": {
           const outputs = new Array<boolean>(k.comp.outputs).fill(false);
           new Sim(
@@ -85,6 +91,8 @@ export class Sim {
           regs[i] = outputs[k.i];
           break;
         }
+        default:
+          k satisfies never;
       }
 
       // console.log("Sim:", i, stmt.kind.tag, inputs, outputs, this.state);
