@@ -64,7 +64,11 @@ export class Renderer {
     c.strokeRect(x, y, w, h);
   }
 
-  drawComponentBody(pos: V2, kind: ComponentKind) {
+  private drawComponentBodyInternal(
+    pos: V2,
+    kind: ComponentKind,
+    label: string,
+  ) {
     const { c, offset } = this;
     const { x, y } = pos.add(offset);
     const { x: w, y: h } = kind.size;
@@ -77,14 +81,18 @@ export class Renderer {
 
     c.fillStyle = `#333333`;
     c.font = "bold 16px monospace";
-    const textMetrix = c.measureText(kind.label);
+    const textMetrix = c.measureText(label);
     c.fillText(
-      kind.label,
+      label,
       x + w / 2 - textMetrix.width / 2,
       y + 13 + h / 2 - 16 / 2,
     );
   }
-  drawComponentBodySelected(pos: V2, kind: ComponentKind) {
+  private drawComponentBodySelectedInternal(
+    pos: V2,
+    kind: ComponentKind,
+    label: string,
+  ) {
     const { c, offset } = this;
     const { x, y } = pos.add(offset);
     const { x: w, y: h } = kind.size;
@@ -97,11 +105,55 @@ export class Renderer {
 
     c.fillStyle = `#333333`;
     c.font = "bold 16px monospace";
-    const textMetrix = c.measureText(kind.label);
+    const textMetrix = c.measureText(label);
     c.fillText(
-      kind.label,
+      label,
       x + w / 2 - textMetrix.width / 2,
       y + 13 + h / 2 - 16 / 2,
+    );
+  }
+
+  drawComponentBody(pos: V2, kind: ComponentKind) {
+    this.drawComponentBodyInternal(pos, kind, kind.label);
+  }
+  drawComponentBodySelected(pos: V2, kind: ComponentKind) {
+    this.drawComponentBodySelectedInternal(pos, kind, kind.label);
+  }
+
+  drawInputComponentBody(pos: V2, kind: ComponentKind, active: boolean) {
+    this.drawComponentBodyInternal(
+      pos,
+      kind,
+      `input (${active ? "on" : "off"})`,
+    );
+  }
+  drawInputComponentBodySelected(
+    pos: V2,
+    kind: ComponentKind,
+    active: boolean,
+  ) {
+    this.drawComponentBodySelectedInternal(
+      pos,
+      kind,
+      `input (${active ? "on" : "off"})`,
+    );
+  }
+  drawOutputComponentBody(pos: V2, kind: ComponentKind, active: boolean) {
+    this.drawComponentBodyInternal(
+      pos,
+      kind,
+      `output (${active ? "on" : "off"})`,
+    );
+  }
+  drawOutputComponentBodySelected(
+    pos: V2,
+    kind: ComponentKind,
+    active: boolean,
+  ) {
+    this.drawComponentBodySelectedInternal(
+      pos,
+      kind,
+      `output (${active ? "on" : "off"})`,
     );
   }
 
@@ -153,12 +205,12 @@ export class Renderer {
     c.stroke();
   }
 
-  drawWire(begin: V2, end: V2) {
+  drawWire(begin: V2, end: V2, active: boolean) {
     const { c, offset } = this;
     const { x: x0, y: y0 } = begin.add(offset);
     const { x: x1, y: y1 } = end.add(offset);
 
-    c.strokeStyle = `#333333`;
+    c.strokeStyle = active ? `#bb3333` : `#333333`;
     c.lineWidth = 3;
     c.beginPath();
     c.moveTo(x0, y0);

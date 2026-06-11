@@ -1,4 +1,4 @@
-import { Board, ComponentRepo } from "./Board";
+import { Board, Component, ComponentRepo } from "./Board";
 import { SelectionBox } from "./SelectionBox";
 import { ComponentPlacer } from "./ComponentPlacer";
 import { Selection } from "./Selection";
@@ -11,6 +11,8 @@ import { ViewPos } from "./ViewPos";
 import { type ComponentKind } from "./Board";
 import type { EventUnsub } from "./events";
 import { Project } from "./Project";
+import * as ir from "./ir";
+import { Sim } from "./sim";
 
 export class Editor {
   public events = new EventBus();
@@ -25,6 +27,8 @@ export class Editor {
   public selection: Selection | null = null;
   public connectingWire: ConnectingWire | null = null;
 
+  public inputStates = new Map<Component, boolean>();
+
   public keysPressed = new Set<string>();
 
   private state: State = new Normal(this);
@@ -38,10 +42,14 @@ export class Editor {
         "KeyDown",
         "KeyUp",
         "SelectTool",
+        "OpenTabWithTool",
         "CreateTab",
+        "CloseComponent",
         "SelectTab",
         "SaveComponent",
         "RenameComponent",
+        "SimulateRequest",
+        "SaveRequest",
       ],
       (ev) => {
         switch (ev.tag) {
@@ -54,6 +62,11 @@ export class Editor {
           case "SelectTool":
             this.onSelectTool(ev.tool);
             break;
+          case "OpenTabWithTool": {
+            const idx = this.project.tabWithTool(ev.tool);
+            this.switchTab(idx);
+            break;
+          }
           case "CreateTab": {
             const idx = this.project.newTab();
             this.switchTab(idx);
@@ -63,12 +76,24 @@ export class Editor {
             this.switchTab(ev.idx);
             break;
           }
+          case "CloseComponent": {
+            this.switchTab(this.project.closeTab());
+            break;
+          }
           case "SaveComponent": {
             this.project.saveComponent();
             break;
           }
           case "RenameComponent": {
             this.project.renameComponent(ev.newName);
+            break;
+          }
+          case "SimulateRequest": {
+            // this.runSimulation();
+            break;
+          }
+          case "SaveRequest": {
+            this.project.save();
             break;
           }
         }
@@ -84,7 +109,7 @@ export class Editor {
 
     r.clear();
     r.drawGrid();
-    this.board.render(r, this.selection);
+    this.board.render(r, this.selection, this.inputStates);
     this.selectionBox?.render(r);
     this.componentPlacer?.render(r);
     this.connectingWire?.render(r);
@@ -120,15 +145,10 @@ export class Editor {
   }
 
   runSimulation() {
-    // const comp = this.board.toIr();
-    // console.log("Before optimizing");
-    // console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
-    // new ir.ComponentOptimizer(comp).optimize();
-    // console.log("After optimizing");
-    // console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
-    // const sim = new Sim(comp, [], []);
-    // sim.simulate();
+    this.board.simulate(this.inputStates);
+    this.events.send({ tag: "RenderRequest" });
   }
+
   private onSelectTool(tool: string) {
     switch (tool) {
       case "pan":
@@ -142,7 +162,7 @@ export class Editor {
         this.transitionTo(new Placing(this, tool));
         break;
       default:
-        this.transitionTo(new Normal(this));
+        this.transitionTo(new Placing(this, tool));
     }
     this.events.send({ tag: "ShowSelectedTool", tool });
   }
@@ -150,6 +170,7 @@ export class Editor {
   private switchTab(idx: number) {
     this.project.switchTab(idx);
     this.events.send({ tag: "ShowSelectedTab", idx });
+    this.events.send({ tag: "ShowSelectedTool", tool: "" });
     this.selectionBox = null;
     this.componentPlacer = null;
     this.selection = null;
@@ -173,17 +194,29 @@ class Normal implements State {
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
       [
-        "MouseDownOffset",
+        "MouseClickOffset",
+        "MouseDoubleClickOffset",
         "MouseMoveOffset",
         "MouseDragBegin",
         "KeyDown",
-        "MouseDoubleClick",
       ],
       (ev) => {
         switch (ev.tag) {
-          case "MouseDownOffset":
-            this.onMouseDown(ev.pos);
+          case "MouseClickOffset":
+            this.onMouseClick(ev.pos);
             break;
+          case "MouseDoubleClickOffset": {
+            this.cx.board.handleMouseClick(ev.pos, {
+              onComponentClicked: (comp) => {
+                if (comp.kind.label === "input") {
+                  const val = this.cx.inputStates.get(comp) ?? false;
+                  this.cx.inputStates.set(comp, !val);
+                  this.cx.events.send({ tag: "SimulateRequest" });
+                }
+              },
+            });
+            break;
+          }
           case "MouseMoveOffset":
             this.cx.board.updateMouseHover(ev.pos);
             break;
@@ -199,28 +232,18 @@ class Normal implements State {
             }
             break;
           }
-          case "MouseDoubleClick": {
-            this.cx.board.handleMouseClick(ev.pos, {
-              onComponentClicked: (comp) => {
-                if (comp.kind.label === "input") {
-                }
-              },
-            });
-            break;
-          }
         }
       },
     );
 
     this.cx.events.send({ tag: "ShowSelectedTool", tool: "select" });
-    this.cx.runSimulation();
   }
 
   leave(): void {
     this.unsubscribe();
   }
 
-  private onMouseDown(pos: V2): void {
+  private onMouseClick(pos: V2): void {
     this.cx.board.handleMouseClick(pos, {
       onInputPinClicked: (comp, i) => {
         this.cx.connectingWire = new ConnectingWire(
@@ -319,6 +342,7 @@ class Placing implements State {
             const boardPos = ev.pos;
             if (this.cx.board.canPlaceComponent(this.compDef, boardPos)) {
               this.cx.board.placeComponent(this.compDef, boardPos);
+              this.cx.events.send({ tag: "SaveRequest" });
               this.cx.transitionTo(new Normal(this.cx));
             }
             break;
@@ -378,6 +402,7 @@ class Selecting implements State {
               }
               this.cx.board.deleteSelection(this.cx.selection);
               this.cx.selection = null;
+              this.cx.events.send({ tag: "SaveRequest" });
               this.cx.transitionTo(new Normal(this.cx));
             }
             break;
@@ -429,6 +454,8 @@ class Selecting implements State {
 class Moving implements State {
   private unsubscribe!: EventUnsub;
 
+  private hasMoved = false;
+
   constructor(private cx: Editor) {}
 
   enter(): void {
@@ -440,6 +467,7 @@ class Moving implements State {
             this.cx.transitionTo(new Selecting(this.cx));
             break;
           case "MouseMove":
+            this.hasMoved = true;
             this.cx.selection?.move(ev.deltaPos);
             break;
         }
@@ -448,6 +476,9 @@ class Moving implements State {
   }
 
   leave(): void {
+    if (this.hasMoved) {
+      this.cx.events.send({ tag: "SaveRequest" });
+    }
     this.unsubscribe();
   }
 }
@@ -514,11 +545,11 @@ class Wiring implements State {
 
   enter(): void {
     this.unsubscribe = this.cx.events.subscribe(
-      ["MouseDownOffset", "MouseMoveOffset", "KeyDown"],
+      ["MouseClickOffset", "MouseMoveOffset", "KeyDown"],
       (ev) => {
         switch (ev.tag) {
-          case "MouseDownOffset":
-            this.onMouseDown(ev.pos);
+          case "MouseClickOffset":
+            this.onMouseClick(ev.pos);
             break;
           case "MouseMoveOffset": {
             if (!this.cx.connectingWire) {
@@ -545,21 +576,25 @@ class Wiring implements State {
     this.unsubscribe();
   }
 
-  private onMouseDown(pos: V2): void {
+  private onMouseClick(pos: V2): void {
+    this.cx.connectingWire?.move(pos);
     if (
       this.cx.board.handleMouseClick(pos, {
         onInputPinClicked: (comp, i) => {
           this.cx.connectingWire!.connectToInput(this.cx.board, comp, i);
+          this.cx.events.send({ tag: "SaveRequest" });
           this.cx.connectingWire = null;
           this.cx.transitionTo(new Normal(this.cx));
         },
         onOutputPinClicked: (comp, i) => {
           this.cx.connectingWire!.connectToOutput(this.cx.board, comp, i);
+          this.cx.events.send({ tag: "SaveRequest" });
           this.cx.connectingWire = null;
           this.cx.transitionTo(new Normal(this.cx));
         },
         onJointClicked: (joint) => {
           this.cx.connectingWire!.connectToJoint(this.cx.board, joint);
+          this.cx.events.send({ tag: "SaveRequest" });
           this.cx.connectingWire = null;
           this.cx.transitionTo(new Normal(this.cx));
         },

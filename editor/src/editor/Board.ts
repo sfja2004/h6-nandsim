@@ -8,6 +8,8 @@ import {
   V2,
 } from "./V2";
 import * as ir from "./ir";
+import { Sim } from "./sim";
+import * as ser from "./serialize";
 
 export class Board {
   private components: Component[] = [];
@@ -18,6 +20,14 @@ export class Board {
   private hoveredOverOutput: [Component, number] | null = null;
   private hoveredOverJoint: Joint | null = null;
   private hoveredOverWire: Wire | null = null;
+
+  private stateWireMap = new Map<ir.State, Wire[]>();
+  private activatedWires = new Set<Wire>();
+  private state = new Map<ir.State, boolean>();
+
+  private activatedOutputs = new Set<Component>();
+
+  private wireCachedState = new Map<Wire, ir.State>();
 
   constructor() {}
 
@@ -42,6 +52,34 @@ export class Board {
     return board;
   }
 
+  static fromSerialized(
+    data: ser.Board,
+    kindMap: Map<string, ComponentKind>,
+  ): Board {
+    const board = new Board();
+    board.components = data.components.map((c) =>
+      Component.fromSerialized(c, kindMap),
+    );
+    board.joints = data.joints.map((j) => Joint.fromSerialized(j));
+    board.wires = data.wires.map((w) =>
+      Wire.fromSerialized(w, board.components, board.joints),
+    );
+    return board;
+  }
+
+  serialize(): ser.Board {
+    return {
+      components: this.components.map((c) => c.serialize()),
+      joints: this.joints.map((j) => j.serialize()),
+      wires: this.wires.map((w) =>
+        w.serialize(
+          new Map(this.components.map((v, i) => [v, i])),
+          new Map(this.joints.map((v, i) => [v, i])),
+        ),
+      ),
+    };
+  }
+
   canPlaceComponent(kind: ComponentKind, pos: V2): boolean {
     return !this.components.some((comp) =>
       rectsCollide(comp.pos, comp.kind.size, pos, kind.size),
@@ -52,20 +90,47 @@ export class Board {
     this.components.push(new Component(kind, pos));
   }
 
-  render(r: Renderer, selection: Selection | null) {
+  render(
+    r: Renderer,
+    selection: Selection | null,
+    inputStates: Map<Component, boolean>,
+  ) {
     for (const comp of this.components) {
       const { pos, kind } = comp;
-      if (selection?.isComponentSelected(comp)) {
-        r.drawComponentBodySelected(pos, kind);
-      } else {
-        r.drawComponentBody(pos, kind);
-      }
+
+      const isSelected = selection?.isComponentSelected(comp);
 
       for (const wire of this.wires) {
         if (this.hoveredOverWire == wire) {
           r.drawWireHovered(wire.beginPos(), wire.endPos());
         } else {
-          r.drawWire(wire.beginPos(), wire.endPos());
+          r.drawWire(
+            wire.beginPos(),
+            wire.endPos(),
+            this.activatedWires.has(wire),
+          );
+        }
+      }
+
+      if (comp.kind.label === "input") {
+        const active = inputStates.get(comp) ?? false;
+        if (isSelected) {
+          r.drawInputComponentBodySelected(pos, kind, active);
+        } else {
+          r.drawInputComponentBody(pos, kind, active);
+        }
+      } else if (comp.kind.label === "output") {
+        const active = this.activatedOutputs.has(comp);
+        if (isSelected) {
+          r.drawOutputComponentBodySelected(pos, kind, active);
+        } else {
+          r.drawOutputComponentBody(pos, kind, active);
+        }
+      } else {
+        if (isSelected) {
+          r.drawComponentBodySelected(pos, kind);
+        } else {
+          r.drawComponentBody(pos, kind);
         }
       }
 
@@ -231,9 +296,68 @@ export class Board {
     );
   }
 
-  toIr(): ir.Component {
-    console.log("Lowering to IR");
+  inputsOrdered(): Component[] {
+    return this.components
+      .filter((c) => c.kind.label === "input")
+      .toSorted((a, b) => a.pos.y - b.pos.y);
+  }
 
+  outputsOrdered(): Component[] {
+    return this.components
+      .filter((c) => c.kind.label === "output")
+      .toSorted((a, b) => a.pos.y - b.pos.y);
+  }
+
+  inputArray(activatedInputs: Map<Component, boolean>): boolean[] {
+    return this.inputsOrdered().map((c) => activatedInputs.get(c) ?? false);
+  }
+
+  outputCount(): number {
+    return this.components.filter((c) => c.kind.label === "output").length;
+  }
+
+  simulate(inputStates: Map<Component, boolean>) {
+    console.log("Lowering to IR");
+    const comp = this.toIr();
+    console.log("Before optimizing");
+    console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
+
+    const replacedStates: [ir.State, ir.State][] = [];
+    new ir.ComponentOptimizer(comp, replacedStates).optimize();
+
+    for (const [oldState, newState] of replacedStates) {
+      this.stateWireMap
+        .get(newState)!
+        .push(...this.stateWireMap.get(oldState)!);
+      this.stateWireMap.delete(oldState);
+    }
+
+    console.log("After optimizing");
+    console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
+
+    const inputs = this.inputArray(inputStates);
+    const outputs = this.outputsOrdered();
+    const outputStates = outputs.map(() => false);
+    const sim = new Sim(comp, inputs, outputStates, this.state);
+
+    sim.simulate();
+
+    this.activatedWires.clear();
+    for (const state of sim.activatedState()) {
+      for (const wire of this.stateWireMap.get(state) ?? []) {
+        this.activatedWires.add(wire);
+      }
+    }
+
+    this.activatedOutputs.clear();
+    for (const [i, active] of outputStates.entries()) {
+      if (active) {
+        this.activatedOutputs.add(outputs[i]);
+      }
+    }
+  }
+
+  toIr(): ir.Component {
     for (const comp of this.components) {
       comp.markedWiresConnected = [];
     }
@@ -262,9 +386,13 @@ export class Board {
 
     const b = new ir.ComponentBuilder(inputs.length, outputs.length, "main");
 
+    this.stateWireMap.clear();
     const wireStates = new Map<Wire, ir.State>();
     for (const wire of this.wires) {
-      wireStates.set(wire, b.makeState());
+      const state = this.wireCachedState.get(wire) ?? b.makeState();
+      this.wireCachedState.set(wire, state);
+      wireStates.set(wire, state);
+      this.stateWireMap.set(state, [wire]);
     }
 
     const compSet = new Set<Component>();
@@ -362,7 +490,7 @@ export interface BoardVisitor {
 }
 
 export class ComponentRepo {
-  private defs = new Map<string, ComponentKind>();
+  public defs = new Map<string, ComponentKind>();
 
   static withDefaults(): ComponentRepo {
     const repo = new ComponentRepo();
@@ -372,6 +500,20 @@ export class ComponentRepo {
     }
 
     return repo;
+  }
+
+  static fromSerialized(data: ser.ComponentRepo): ComponentRepo {
+    const repo = new ComponentRepo();
+    repo.defs = new Map(
+      data.defs.map((e) => [e[0], ComponentKind.fromSerialized(e[1])]),
+    );
+    return repo;
+  }
+
+  serialize(): ser.ComponentRepo {
+    return {
+      defs: [...this.defs.entries()].map((e) => [e[0], e[1].serialize()]),
+    };
   }
 
   available(): string[] {
@@ -398,6 +540,23 @@ export class Component {
     public kind: ComponentKind,
     public pos: V2,
   ) {}
+
+  static fromSerialized(
+    data: ser.Component,
+    kindMap: Map<string, ComponentKind>,
+  ): Component {
+    return new Component(
+      kindMap.get(data.kindKey)!,
+      V2.fromSerialized(data.pos),
+    );
+  }
+
+  serialize(): ser.Component {
+    return {
+      kindKey: this.kind.label,
+      pos: this.pos.serialize(),
+    };
+  }
 
   mouseOver(pos: V2): ComponentMouseOverResult | null {
     const {
@@ -462,6 +621,24 @@ export class ComponentKind {
     public outputs: (string | null)[],
   ) {}
 
+  static fromSerialized(data: ser.ComponentKind): ComponentKind {
+    return new ComponentKind(
+      V2.fromSerialized(data.size),
+      data.label,
+      data.inputs,
+      data.outputs,
+    );
+  }
+
+  serialize(): ser.ComponentKind {
+    return {
+      size: this.size.serialize(),
+      label: this.label,
+      inputs: this.inputs,
+      outputs: this.outputs,
+    };
+  }
+
   inputPinOffsets(): number[] {
     return this.inputs.map(
       (_, i) => ((i + 1) * this.size.y) / (this.inputs.length + 1),
@@ -478,6 +655,14 @@ export class Joint {
   public markedWiresConnected: [Wire, WireConnection][] = [];
 
   constructor(public pos: V2) {}
+
+  static fromSerialized(data: ser.Joint): Joint {
+    return new Joint(V2.fromSerialized(data.pos));
+  }
+
+  serialize(): ser.Joint {
+    return { pos: this.pos.serialize() };
+  }
 
   isMouseOver(pos: V2): boolean {
     return this.pos.distance(pos) < 6;
@@ -499,6 +684,51 @@ export class Wire {
     private begin: WireConnection,
     private end: WireConnection,
   ) {}
+
+  static fromSerialized(
+    data: ser.Wire,
+    comps: Component[],
+    joints: Joint[],
+  ): Wire {
+    const [begin, end] = [data.begin, data.end].map((conn): WireConnection => {
+      switch (conn.tag) {
+        case "Joint":
+          return { tag: "Joint", joint: joints[conn.jointIdx] };
+        case "InputPin":
+        case "OutputPin":
+          return {
+            tag: conn.tag,
+            comp: comps[conn.compIdx],
+            i: conn.i,
+          };
+      }
+    });
+
+    return new Wire(begin, end);
+  }
+
+  serialize(
+    compIdxMap: Map<Component, number>,
+    jointIdxMap: Map<Joint, number>,
+  ): ser.Wire {
+    const [begin, end] = [this.begin, this.end].map(
+      (conn): ser.WireConnection => {
+        switch (conn.tag) {
+          case "Joint":
+            return { tag: "Joint", jointIdx: jointIdxMap.get(conn.joint)! };
+          case "InputPin":
+          case "OutputPin":
+            return {
+              tag: conn.tag,
+              compIdx: compIdxMap.get(conn.comp)!,
+              i: conn.i,
+            };
+        }
+      },
+    );
+
+    return { begin, end };
+  }
 
   isInput(): boolean {
     return this.mapConns((connection) => connection.tag === "InputPin").some(
@@ -633,13 +863,13 @@ export type WireConnection =
 const defaultDefs = [
   {
     label: "input",
-    size: v2(80, 40),
+    size: v2(120, 40),
     inputs: [],
     outputs: [null],
   },
   {
     label: "output",
-    size: v2(80, 40),
+    size: v2(140, 40),
     inputs: [null],
     outputs: [],
   },

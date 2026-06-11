@@ -15,12 +15,13 @@ export type Event =
       deltaPos: V2;
     }
   | { tag: "KeyDown" | "KeyUp"; key: string }
-  | { tag: "SelectTool" | "ShowSelectedTool"; tool: string }
+  | { tag: "SelectTool" | "ShowSelectedTool" | "OpenTabWithTool"; tool: string }
   | { tag: "CreateTab" }
   | { tag: "SelectTab" | "ShowSelectedTab"; idx: number }
   | { tag: "MouseDownOffset"; pos: V2; absPos: V2 }
   | { tag: "MouseMoveOffset"; pos: V2; deltaPos: V2 }
-  | { tag: "RenderRequest" }
+  | { tag: "MouseClickOffset" | "MouseDoubleClickOffset"; pos: V2; absPos: V2 }
+  | { tag: "RenderRequest" | "SimulateRequest" | "SaveRequest" }
   | { tag: "SaveComponent" | "CloseComponent" }
   | { tag: "RenameComponent"; newName: string };
 

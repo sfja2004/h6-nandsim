@@ -1,7 +1,7 @@
 import type { EventBus, EventUnsub } from "./events";
 import { v2, type V2 } from "./V2";
 
-const doubleClickDelay = 200;
+const doubleClickDelay = 100;
 
 export class Mouse {
   private state: State;
@@ -103,6 +103,7 @@ class FirstRelease implements State {
   private unsubscribe: EventUnsub;
 
   private timeout: ReturnType<typeof setTimeout>;
+  private totalDelta = v2(0, 0);
 
   constructor(
     private cx: Mouse,
@@ -116,6 +117,11 @@ class FirstRelease implements State {
             this.cx.transitionTo(new SecondPress(this.cx, this.pos));
             break;
           case "MouseMove":
+            this.totalDelta = this.totalDelta.add(ev.deltaPos);
+            if (this.totalDelta.len() > 5) {
+              this.cx.eventBus.send({ tag: "MouseClick", pos: this.pos });
+              this.cx.transitionTo(new Normal(this.cx));
+            }
             break;
           case "MouseLeave":
             this.cx.transitionTo(new Normal(this.cx));
@@ -127,6 +133,7 @@ class FirstRelease implements State {
     );
 
     this.timeout = setTimeout(() => {
+      this.cx.eventBus.send({ tag: "MouseClick", pos: this.pos });
       this.cx.transitionTo(new Normal(this.cx));
     }, doubleClickDelay);
   }
@@ -205,8 +212,6 @@ class Dragging implements State {
           case "MouseLeave":
             this.cx.transitionTo(new Normal(this.cx));
             break;
-          default:
-            throw new Error(`unexpected event ${ev.tag}`);
         }
       },
     );

@@ -4,10 +4,12 @@ import type { Editor } from "./editor/Editor";
 type Props = { editor: Editor; canvasRef: RefObject<HTMLCanvasElement | null> };
 
 function Toolbar({ editor, canvasRef }: Props): ReactElement {
+  const [updateId, update] = useState(0);
   const [selectedTool, setSelectedTool] = useState("select");
 
   useEffect(() =>
     editor.events.subscribe(["ShowSelectedTool"], (ev) => {
+      update(updateId + 1);
       setSelectedTool(ev.tool);
     }),
   );
@@ -23,6 +25,10 @@ function Toolbar({ editor, canvasRef }: Props): ReactElement {
               className={selectedTool === tool ? "active" : ""}
               onClick={() => {
                 editor.events.send({ tag: "SelectTool", tool });
+                canvasRef.current?.focus();
+              }}
+              onDoubleClick={() => {
+                editor.events.send({ tag: "OpenTabWithTool", tool });
                 canvasRef.current?.focus();
               }}
             >

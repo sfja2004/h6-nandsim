@@ -5,22 +5,31 @@ export class ViewPos {
   public offset = v2(0, 0);
 
   constructor(private events: EventBus) {
-    this.events.subscribe(["MouseDown", "MouseMove"], (ev) => {
-      const absPos = ev.pos;
-      const pos = this.canvasToBoard(absPos);
-      switch (ev.tag) {
-        case "MouseDown":
-          this.events.send({ tag: "MouseDownOffset", pos, absPos });
-          break;
-        case "MouseMove":
-          this.events.send({
-            tag: "MouseMoveOffset",
-            pos,
-            deltaPos: ev.deltaPos,
-          });
-          break;
-      }
-    });
+    this.events.subscribe(
+      ["MouseDown", "MouseMove", "MouseClick", "MouseDoubleClick"],
+      (ev) => {
+        const absPos = ev.pos;
+        const pos = this.canvasToBoard(absPos);
+        switch (ev.tag) {
+          case "MouseDown":
+            this.events.send({ tag: "MouseDownOffset", pos, absPos });
+            break;
+          case "MouseMove":
+            this.events.send({
+              tag: "MouseMoveOffset",
+              pos,
+              deltaPos: ev.deltaPos,
+            });
+            break;
+          case "MouseClick":
+            this.events.send({ tag: "MouseClickOffset", pos, absPos });
+            break;
+          case "MouseDoubleClick":
+            this.events.send({ tag: "MouseDoubleClickOffset", pos, absPos });
+            break;
+        }
+      },
+    );
   }
 
   canvasToBoard(pos: V2): V2 {

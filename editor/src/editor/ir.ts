@@ -142,7 +142,10 @@ export class ComponentBuilder {
 }
 
 class StmtsMutater {
-  constructor(private comp: Component) {}
+  constructor(
+    private comp: Component,
+    private replacedStates: [State, State][],
+  ) {}
 
   [Symbol.iterator](): Iterator<Stmt> {
     return this.comp.stmts[Symbol.iterator]();
@@ -155,6 +158,7 @@ class StmtsMutater {
   }
 
   replaceState(oldState: State, newState: State) {
+    this.replacedStates.push([oldState, newState]);
     for (const stmt of this.comp.stmts) {
       stmt.replaceState(oldState, newState);
     }
@@ -177,7 +181,10 @@ class StmtsMutater {
 }
 
 export class ComponentOptimizer {
-  constructor(private comp: Component) {}
+  constructor(
+    private comp: Component,
+    private replacedStates: [State, State][],
+  ) {}
 
   optimize() {
     const score = () => this.comp.stmts.length * 100 + this.comp.states.length;
@@ -196,7 +203,7 @@ export class ComponentOptimizer {
   }
 
   eliminateRedundantState() {
-    const mut = new StmtsMutater(this.comp);
+    const mut = new StmtsMutater(this.comp, this.replacedStates);
     const immediatelyReadStateStmt = new Map<State, Stmt>();
 
     for (const [i, stmt] of this.comp.stmts.entries()) {
@@ -226,7 +233,7 @@ export class ComponentOptimizer {
   }
 
   moveSetStateToSource() {
-    const mut = new StmtsMutater(this.comp);
+    const mut = new StmtsMutater(this.comp, this.replacedStates);
 
     for (const [baseIdx, stmt] of this.comp.stmts.entries()) {
       const indices = this.indexMap();
@@ -249,7 +256,7 @@ export class ComponentOptimizer {
   }
 
   collapseStates() {
-    const mut = new StmtsMutater(this.comp);
+    const mut = new StmtsMutater(this.comp, this.replacedStates);
 
     const sourceStates = new MultiMap<Stmt, State>();
     for (const stmt of this.comp.stmts) {
@@ -266,7 +273,7 @@ export class ComponentOptimizer {
   }
 
   eliminateUnusedStates() {
-    const mut = new StmtsMutater(this.comp);
+    const mut = new StmtsMutater(this.comp, this.replacedStates);
 
     const usedStates = new Set<State>();
     for (const stmt of mut) {
@@ -287,7 +294,7 @@ export class ComponentOptimizer {
   }
 
   eliminateRedundantSetState() {
-    const mut = new StmtsMutater(this.comp);
+    const mut = new StmtsMutater(this.comp, this.replacedStates);
 
     for (let i = this.comp.stmts.length - 1; i > 0; --i) {
       const [first, second] = this.comp.stmts.slice(i - 1, i + 1);

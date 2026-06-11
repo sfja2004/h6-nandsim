@@ -56,7 +56,13 @@ function Tabbar({ editor, canvasRef }: Props): ReactElement {
           >
             Rename
           </button>
-          <button onClick={() => {}}>Close</button>
+          <button
+            onClick={() => {
+              editor.events.send({ tag: "CloseComponent" });
+            }}
+          >
+            Close
+          </button>
         </div>
       </div>
     </>

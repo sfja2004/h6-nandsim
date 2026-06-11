@@ -5,22 +5,25 @@ export class Sim {
     private comp: ir.Component,
     private inputs: boolean[],
     private outputs: boolean[],
+    private state: Map<ir.State, boolean>,
   ) {}
 
   simulate() {
     const { comp, inputs, outputs } = this;
 
     const stmtIdcs = new Map(comp.stmts.map((stmt, i) => [stmt, i]));
-    const state = new Map(comp.states.map((state) => [state, false]));
 
     const regs = new Array<boolean>(comp.stmts.length).fill(false);
+
+    const stateDependents = new Map<ir.State, number>();
 
     const operation = <Ops extends ir.Stmt[]>(
       action: (...ops: boolean[]) => boolean,
       ...ops: Ops
     ) => action(...ops.map((op) => regs[stmtIdcs.get(op)!]));
 
-    for (const [i, stmt] of comp.stmts.entries()) {
+    for (let i = 0; i < comp.stmts.length; ++i) {
+      const stmt = comp.stmts[i];
       const k = stmt.kind;
       switch (k.tag) {
         case "Null":
@@ -30,14 +33,29 @@ export class Sim {
           regs[i] = inputs[k.i];
           break;
         case "Output":
-          outputs[k.i] = regs[i];
+          outputs[k.i] = regs[stmtIdcs.get(k.src)!];
           break;
         case "GetState":
-          regs[i] = state.get(k.state)!;
+          regs[i] = this.state.get(k.state)! ?? false;
+          stateDependents.set(
+            k.state,
+            Math.min(
+              i,
+              stateDependents.get(k.state) ?? Number.MAX_SAFE_INTEGER,
+            ),
+          );
           break;
-        case "SetState":
-          state.set(k.state, regs[i]);
+        case "SetState": {
+          const prev = this.state.get(k.state) ?? false;
+          const val = regs[stmtIdcs.get(k.src)!];
+          this.state.set(k.state, val);
+          if (val !== prev) {
+            if (stateDependents.has(k.state)) {
+              i = stateDependents.get(k.state)! - 1;
+            }
+          }
           break;
+        }
         case "Not":
           regs[i] = operation((v) => !v, k.op);
           break;
@@ -50,6 +68,12 @@ export class Sim {
         case "Component":
           throw new Error("not implemented");
       }
+
+      // console.log("Sim:", i, stmt.kind.tag, inputs, outputs, this.state);
     }
+  }
+
+  activatedState(): ir.State[] {
+    return [...this.state].filter(([_s, v]) => v).map(([s, _v]) => s);
   }
 }

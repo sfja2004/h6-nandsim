@@ -4,6 +4,14 @@ export class V2 {
     public y: number,
   ) {}
 
+  static fromSerialized(data: [number, number]): V2 {
+    return new V2(data[0], data[1]);
+  }
+
+  serialize(): [number, number] {
+    return [this.x, this.y];
+  }
+
   add(other: V2): V2 {
     return new V2(this.x + other.x, this.y + other.y);
   }
