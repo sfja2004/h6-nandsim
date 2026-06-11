@@ -29,8 +29,10 @@ export class Stmt {
       case "And":
       case "Or":
         return [k.lhs, k.rhs];
-      case "Component":
+      case "Call":
         return [...k.inputs];
+      case "Elem":
+        return [k.src];
     }
   }
 
@@ -53,10 +55,11 @@ export class Stmt {
         if (k.lhs === oldStmt) k.lhs = newStmt;
         if (k.rhs === oldStmt) k.rhs = newStmt;
         break;
-      case "Component":
-        k.inputs = k.inputs.map((stmt) =>
-          stmt === oldStmt ? newStmt : oldStmt,
-        );
+      case "Call":
+        k.inputs = k.inputs.map((stmt) => (stmt === oldStmt ? newStmt : stmt));
+        break;
+      case "Elem":
+        if (k.src === oldStmt) k.src = newStmt;
         break;
     }
   }
@@ -82,7 +85,8 @@ export type StmtKind =
   | { tag: "SetState"; state: State; src: Stmt }
   | { tag: "Not"; op: Stmt }
   | { tag: "And" | "Or"; lhs: Stmt; rhs: Stmt }
-  | { tag: "Component"; comp: Component; inputs: Stmt[]; outputs: Stmt[] };
+  | { tag: "Call"; comp: Component; inputs: Stmt[] }
+  | { tag: "Elem"; src: Stmt; i: number };
 
 export class State {}
 
@@ -122,6 +126,12 @@ export class ComponentBuilder {
   }
   makeBinary(tag: "And" | "Or", lhs: Stmt, rhs: Stmt): Stmt {
     return this.makeStmt({ tag, lhs, rhs });
+  }
+  makeCall(comp: Component, inputs: Stmt[]): Stmt {
+    return this.makeStmt({ tag: "Call", comp, inputs });
+  }
+  makeElem(src: Stmt, i: number): Stmt {
+    return this.makeStmt({ tag: "Elem", src, i });
   }
 
   private makeStmt(kind: StmtKind): Stmt {
@@ -186,7 +196,15 @@ export class ComponentOptimizer {
     private replacedStates: [State, State][],
   ) {}
 
-  optimize() {
+  optimizeMain() {
+    this.optimizeWithOptions(false);
+  }
+
+  optimizeComponent() {
+    this.optimizeWithOptions(true);
+  }
+
+  private optimizeWithOptions(removeUnusedStates: boolean) {
     const score = () => this.comp.stmts.length * 100 + this.comp.states.length;
 
     let scoreBefore: number;
@@ -199,6 +217,9 @@ export class ComponentOptimizer {
       this.collapseStates();
       this.eliminateUnusedStates();
       this.eliminateRedundantSetState();
+      if (removeUnusedStates) {
+        this.eliminateIndependentSetState();
+      }
     } while (score() !== scoreBefore);
   }
 
@@ -309,6 +330,28 @@ export class ComponentOptimizer {
     }
   }
 
+  eliminateIndependentSetState() {
+    const mut = new StmtsMutater(this.comp, this.replacedStates);
+
+    const usedStates = new Set<State>();
+    for (const stmt of mut) {
+      const k = stmt.kind;
+      switch (k.tag) {
+        case "GetState":
+          usedStates.add(k.state);
+          break;
+        default:
+          break;
+      }
+    }
+
+    for (const stmt of [...mut]) {
+      if (stmt.kind.tag === "SetState" && !usedStates.has(stmt.kind.state)) {
+        mut.removeStmt(stmt);
+      }
+    }
+  }
+
   private indexMap(): Map<Stmt, number> {
     return new Map(this.comp.stmts.map((stmt, i) => [stmt, i]));
   }
@@ -355,7 +398,7 @@ export class ComponentPrinter {
         "\\c(color: #d44949; font-weight: bold)$&\\c",
       )
       .replaceAll(
-        /(?:Null)|(?:Input)|(?:Output)|(?:GetState)|(?:SetState)|(?:Not)|(?:And)|(?:Or)|(?:Component)/g,
+        /(?:Null)|(?:Input)|(?:Output)|(?:GetState)|(?:SetState)|(?:Not)|(?:And)|(?:Or)|(?:Call)|(?:Elem)/g,
         "\\c(color: orange)$&\\c",
       );
 
@@ -407,8 +450,10 @@ export class ComponentPrinter {
       case "And":
       case "Or":
         return `${stmtId(stmt)} = ${k.tag} ${stmtId(k.lhs)}, ${stmtId(k.rhs)}`;
-      case "Component":
-        return `Component <...>`;
+      case "Call":
+        return `${stmtId(stmt)} = Call ${k.comp.label} (${k.inputs.map((s) => stmtId(s)).join(", ")})`;
+      case "Elem":
+        return `${stmtId(stmt)} = Elem ${stmtId(k.src)}, ${k.i}`;
     }
   }
 }

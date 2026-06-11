@@ -74,6 +74,8 @@ export class Editor {
           }
           case "SelectTab": {
             this.switchTab(ev.idx);
+            this.events.send({ tag: "SimulateRequest" });
+
             break;
           }
           case "CloseComponent": {
@@ -89,7 +91,7 @@ export class Editor {
             break;
           }
           case "SimulateRequest": {
-            // this.runSimulation();
+            this.runSimulation();
             break;
           }
           case "SaveRequest": {
@@ -146,7 +148,6 @@ export class Editor {
 
   runSimulation() {
     this.board.simulate(this.inputStates);
-    this.events.send({ tag: "RenderRequest" });
   }
 
   private onSelectTool(tool: string) {

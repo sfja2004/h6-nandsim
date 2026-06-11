@@ -29,10 +29,10 @@ export class Board {
 
   private wireCachedState = new Map<Wire, ir.State>();
 
-  constructor() {}
+  constructor(private repo: ComponentRepo) {}
 
   static withExample(repo: ComponentRepo): Board {
-    const board = new Board();
+    const board = new Board(repo);
     board.placeComponent(repo.get("input"), v2(100, 100));
     board.placeComponent(repo.get("input"), v2(100, 200));
     board.placeComponent(repo.get("and"), v2(300, 150));
@@ -52,13 +52,10 @@ export class Board {
     return board;
   }
 
-  static fromSerialized(
-    data: ser.Board,
-    kindMap: Map<string, ComponentKind>,
-  ): Board {
-    const board = new Board();
+  static fromSerialized(data: ser.Board, repo: ComponentRepo): Board {
+    const board = new Board(repo);
     board.components = data.components.map((c) =>
-      Component.fromSerialized(c, kindMap),
+      Component.fromSerialized(c, repo.defs),
     );
     board.joints = data.joints.map((j) => Joint.fromSerialized(j));
     board.wires = data.wires.map((w) =>
@@ -318,12 +315,20 @@ export class Board {
 
   simulate(inputStates: Map<Component, boolean>) {
     console.log("Lowering to IR");
-    const comp = this.toIr();
+    const comps = new Map<string, ir.Component>();
+    const comp = this.toIr("<main>", comps);
     console.log("Before optimizing");
+    for (const [_label, comp] of comps) {
+      console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
+    }
     console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
 
+    for (const [_label, comp] of comps) {
+      new ir.ComponentOptimizer(comp, []).optimizeComponent();
+    }
+
     const replacedStates: [ir.State, ir.State][] = [];
-    new ir.ComponentOptimizer(comp, replacedStates).optimize();
+    new ir.ComponentOptimizer(comp, replacedStates).optimizeMain();
 
     for (const [oldState, newState] of replacedStates) {
       this.stateWireMap
@@ -333,6 +338,9 @@ export class Board {
     }
 
     console.log("After optimizing");
+    for (const [_label, comp] of comps) {
+      console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
+    }
     console.log(...new ir.ComponentPrinter().stringifyToConsole(comp));
 
     const inputs = this.inputArray(inputStates);
@@ -357,7 +365,7 @@ export class Board {
     }
   }
 
-  toIr(): ir.Component {
+  toIr(label: string, comps: Map<string, ir.Component>): ir.Component {
     for (const comp of this.components) {
       comp.markedWiresConnected = [];
     }
@@ -384,7 +392,7 @@ export class Board {
       outputIdcs.set(output, i);
     }
 
-    const b = new ir.ComponentBuilder(inputs.length, outputs.length, "main");
+    const b = new ir.ComponentBuilder(inputs.length, outputs.length, label);
 
     this.stateWireMap.clear();
     const wireStates = new Map<Wire, ir.State>();
@@ -429,14 +437,32 @@ export class Board {
               return b.makeBinary("And", inputStmt(0), inputStmt(1));
             case "or":
               return b.makeBinary("Or", inputStmt(0), inputStmt(1));
-            default:
-              throw new Error("not implemented");
+            default: {
+              const savedBoard = this.repo.getSavedBoard(comp.kind.label);
+              if (!savedBoard) {
+                throw new Error(`no component '${comp.kind.label}'`);
+              }
+
+              const label = comp.kind.label;
+              const board = Board.fromSerialized(savedBoard, this.repo);
+
+              const ir = comps.get(label) ?? board.toIr(label, comps);
+              comps.set(label, ir);
+
+              return b.makeCall(
+                ir,
+                comp.kind.inputs.map((_, i) => inputStmt(i)),
+              );
+            }
           }
         })();
 
         for (const [wire, connection] of comp.markedWiresConnected) {
           if (connection.tag === "OutputPin") {
-            b.makeSetState(wireStates.get(wire)!, stmt);
+            b.makeSetState(
+              wireStates.get(wire)!,
+              stmt.kind.tag === "Call" ? b.makeElem(stmt, connection.i) : stmt,
+            );
           }
         }
       },
@@ -491,6 +517,7 @@ export interface BoardVisitor {
 
 export class ComponentRepo {
   public defs = new Map<string, ComponentKind>();
+  private savedBoards = new Map<string, ser.Board>();
 
   static withDefaults(): ComponentRepo {
     const repo = new ComponentRepo();
@@ -507,12 +534,14 @@ export class ComponentRepo {
     repo.defs = new Map(
       data.defs.map((e) => [e[0], ComponentKind.fromSerialized(e[1])]),
     );
+    repo.savedBoards = new Map(data.savedBoards);
     return repo;
   }
 
   serialize(): ser.ComponentRepo {
     return {
       defs: [...this.defs.entries()].map((e) => [e[0], e[1].serialize()]),
+      savedBoards: [...this.savedBoards],
     };
   }
 
@@ -530,6 +559,14 @@ export class ComponentRepo {
       throw new Error("should be defined");
     }
     return kind;
+  }
+
+  addSavedBoard(ident: string, savedBoard: ser.Board) {
+    this.savedBoards.set(ident, savedBoard);
+  }
+
+  getSavedBoard(ident: string): ser.Board | null {
+    return this.savedBoards.get(ident) ?? null;
   }
 }
 

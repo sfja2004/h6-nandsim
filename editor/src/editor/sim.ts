@@ -16,6 +16,7 @@ export class Sim {
     const regs = new Array<boolean>(comp.stmts.length).fill(false);
 
     const stateDependents = new Map<ir.State, number>();
+    const callOutput = new Map<ir.Stmt, boolean[]>();
 
     const operation = <Ops extends ir.Stmt[]>(
       action: (...ops: boolean[]) => boolean,
@@ -65,8 +66,25 @@ export class Sim {
         case "Or":
           regs[i] = operation((a, b) => a || b, k.lhs, k.rhs);
           break;
-        case "Component":
-          throw new Error("not implemented");
+        case "Call": {
+          const outputs = new Array<boolean>(k.comp.outputs).fill(false);
+          new Sim(
+            k.comp,
+            k.inputs.map((stmt) => regs[stmtIdcs.get(stmt)!]),
+            outputs,
+            this.state,
+          ).simulate();
+          callOutput.set(stmt, outputs);
+          break;
+        }
+        case "Elem": {
+          const outputs = callOutput.get(k.src);
+          if (!outputs) {
+            throw new Error();
+          }
+          regs[i] = outputs[k.i];
+          break;
+        }
       }
 
       // console.log("Sim:", i, stmt.kind.tag, inputs, outputs, this.state);

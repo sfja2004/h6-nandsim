@@ -10,7 +10,6 @@ export class Project {
     private events: EventBus,
     private boardEditors: BoardEditor[],
     public componentRepo: ComponentRepo,
-    private savedBoards: Map<string, ser.Board>,
   ) {
     this.current = boardEditors[this.selectedIdx];
   }
@@ -34,7 +33,6 @@ export class Project {
         },
       ],
       repo,
-      new Map(),
     );
   }
 
@@ -46,13 +44,10 @@ export class Project {
   }
 
   save() {
-    console.log("Saving");
+    // console.log("Saving");
     const data = this.serialize();
-    globalThis.localStorage.setItem(
-      "nandsim",
-      JSON.stringify(this.serialize()),
-    );
-    console.log(data);
+    globalThis.localStorage.setItem("nandsim", JSON.stringify(data));
+    // console.log(data);
   }
 
   private static fromSerialized(data: ser.Project, events: EventBus): Project {
@@ -62,11 +57,10 @@ export class Project {
       data.boardEditors.map(
         (data): BoardEditor => ({
           name: data.name,
-          board: Board.fromSerialized(data.board, repo.defs),
+          board: Board.fromSerialized(data.board, repo),
         }),
       ),
       repo,
-      new Map(data.savedBoards),
     );
     return project;
   }
@@ -82,7 +76,6 @@ export class Project {
       ),
       currentBoardEditorIdx: this.selectedIdx,
       componentRepo,
-      savedBoards: [...this.savedBoards],
     };
   }
 
@@ -103,7 +96,7 @@ export class Project {
   newTab(): number {
     this.boardEditors.push({
       name: `(Unnamed ${this.boardEditors.length})`,
-      board: new Board(),
+      board: new Board(this.componentRepo),
     });
     this.events.send({ tag: "ShowSelectedTab", idx: this.selectedIdx });
     return this.boardEditors.length - 1;
@@ -114,11 +107,11 @@ export class Project {
     this.current = this.boardEditors[this.selectedIdx];
     this.events.send({ tag: "ShowSelectedTab", idx: this.selectedIdx });
     this.events.send({ tag: "ShowSelectedTool", tool: this.current.name });
+    this.events.send({ tag: "SaveRequest" });
   }
 
   closeTab(): number {
-    const [removed] = this.boardEditors.splice(this.selectedIdx, 1);
-    this.savedBoards.set(removed.name, removed.board.serialize());
+    const [_removed] = this.boardEditors.splice(this.selectedIdx, 1);
     this.events.send({ tag: "SaveRequest" });
 
     if (this.boardEditors.length === 0) {
@@ -138,7 +131,13 @@ export class Project {
       this.current.name,
       this.current.board.toComponentKind(this.current.name),
     );
+    this.componentRepo.addSavedBoard(
+      this.current.name,
+      this.current.board.serialize(),
+    );
+
     this.events.send({ tag: "ShowSelectedTool", tool: this.current.name });
+    this.events.send({ tag: "SaveRequest" });
   }
 
   tabWithTool(name: string): number {
@@ -148,12 +147,12 @@ export class Project {
       return foundIdx;
     }
 
-    const saved = this.savedBoards.get(name);
+    const saved = this.componentRepo.getSavedBoard(name);
     if (!saved) throw new Error(`cannot open '${name}'`);
 
     this.boardEditors.push({
       name: name,
-      board: Board.fromSerialized(saved, this.componentRepo.defs),
+      board: Board.fromSerialized(saved, this.componentRepo),
     });
     this.events.send({ tag: "ShowSelectedTab", idx: this.selectedIdx });
     return this.boardEditors.length - 1;

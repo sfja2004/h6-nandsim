@@ -2,7 +2,6 @@ export type Project = {
   boardEditors: BoardEditor[];
   currentBoardEditorIdx: number;
   componentRepo: ComponentRepo;
-  savedBoards: [string, Board][];
 };
 
 export type BoardEditor = {
@@ -37,6 +36,7 @@ export type WireConnection =
 
 export type ComponentRepo = {
   defs: [string, ComponentKind][];
+  savedBoards: [string, Board][];
 };
 
 export type ComponentKind = {
