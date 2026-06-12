@@ -94,6 +94,8 @@ export class Editor {
           }
           case "SaveRequest": {
             this.project.save();
+            // hack to simulate as often as possible
+            this.events.send({ tag: "SimulateRequest" });
             break;
           }
         }
