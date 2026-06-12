@@ -1,9 +1,7 @@
 
 # H6-NandSim
 
-Svendeprøve
-Simon From Jakobesen
-Juni 2026
+Svendeprøve af Simon From Jakobsen, Juni 2026
 
 Koden kan findes I `app/`.
 
